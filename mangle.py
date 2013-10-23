@@ -24,37 +24,39 @@ class NonTerminal:
 
 class Mangle:
     manglingRule=dict()
-    def parseManglingRules ( fl_name ):
-        global manglingRule;
+    def parseManglingRules ( self, fl_name ):
         with open(fl_name) as f:
             for line in f.readlines() :
+                line = line.strip();
                 if not line or line[0] == '#': continue;
                 line = [x.strip() for x in line.strip().split('->')]
                 try:
-                    manglingRule[line[0]].append( line[1] );
+                    self.manglingRule[line[0]].append( line[1] );
                 except:
-                    manglingRule[line[0]] = [line[1]]
+                    self.manglingRule[line[0]] = [line[1]]
 
     def __init__ ( self, 
                    fl_name = "/home/rahul/Dropbox/HoneyEncryption/ManglingRule.txt" ):
         # TODO - change this path
-        parseManglingRules( fl_name );
+        self.parseManglingRules( fl_name );
     
     def mangle( self, w ):
         ret =''
         M = []
         for i,c in enumerate(w):
-            if c in manglingRule: 
-                ret += manglingRule[c][0];
+            if c in self.manglingRule: 
+                ret += self.manglingRule[c][0];
                 M.append(NonTerminal(c,i)) 
             else: ret += c;
         return [M,ret];
 
+    def __str__(self) :
+        return '';
 
 def getCapitalizeInfo( w ):
     info = []
     for i, c in enumerate(w):
-        if sys.isalpha(c):
+        if c.isalpha():
             if c.isupper(): info.append(i);
     return converIntoNumber( info );
 
@@ -66,6 +68,7 @@ def converIntoNumber( arr ):
     a=['0' for i in range(64)];
     for x in arr:
         a[x] = '1';
+    a = ''.join(a)
     return int(a,2)
 
 def convertIntoArray( n ):

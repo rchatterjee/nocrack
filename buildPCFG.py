@@ -2,8 +2,9 @@
 
 import sys, os
 import bz2
+from mangle import *
 
-if len (sys.argv) < 1 : 
+if len (sys.argv) < 2 : 
     print 'Command: %s <password_dict>' % sys.argv[0]
     exit(0)
 
@@ -26,14 +27,15 @@ def whatChar( c ):
 
 grammar['S'] = ([],0) # start node ( [(w1,n1),(w2,n2),(w3,n3)..], n )
 def insertInGrammar ( pRule, w ):
-    try: 
-        found = False;
+    global grammar
+    try:
         for x in grammar[pRule][0]:
             if x.add(w): grammar[pRule][1] += 1; return;
         grammar[pRule][0].append( NonTerminal(w) )
-        grammar[pRule][1] += 1;         
+        grammar[pRule][1] += 1;
+        # print pRule, w
     except:
-        grammar[pRule] = ([NonTerminal(w)], 1)
+        grammar[pRule] = [[NonTerminal(w)], 1]
         
 mangler = Mangle();
 def findPattern( w, withMangling=False ):
@@ -52,10 +54,11 @@ def findPattern( w, withMangling=False ):
             P.append( NonTerminal(t) );
         else:
             if not P[-1].add(t):
-                W.append( w[i:j].lower() );
-                i=j;
+                W.append( w[i:j-1].lower() );
+                i=j-1;
                 # if  #TODO
                 P.append( NonTerminal(t) )
+    W.append ( w[i:].lower() )
     if Cinfo>0 : 
         CinfoStr = 'C%d' % Cinfo;
         T.append( NonTerminal(CinfoStr) );
@@ -65,12 +68,14 @@ def findPattern( w, withMangling=False ):
 
 def pushWordIntoGrammar( w, isMangling=False ) :
     P,W,T = findPattern ( w, isMangling )
+    # print ','.join([str(x) for x in P]),'~~', W,'~~', 
+    # print  ','.join([str(x) for x in T])
     insertInGrammar ( 'S', ','.join([str(x) for x in P]) )
     for p,w in zip(P,W):
-        insertInGrammar(p, w);
+        insertInGrammar(str(p), w);
     for t in T:
         insertInGrammar ( 'T', t )
-    if !isMangling : pushWordIntoGrammar ( w, True )
+    if isMangling : pushWordIntoGrammar ( w, True )
         
 def getNT ( w ):
     return [','.join([str(x) for x in findPattern( w, False )]),
@@ -87,13 +92,14 @@ for line in f.readlines():
     #if len(line)>1 : #dictionary with count
     #    print "currently not supported..:P"
     # else:
-    x = getNT( line )
-    try:
-        grammar[x].append(line)
-    except: 
-        grammar[x] = [line];
+    pushWordIntoGrammar( line )
+    # x = getNT( line )
+    # try:
+    #     grammar[x].append(line)
+    # except: 
+    #     grammar[x] = [line];
 f.close();
 
 for g in grammar:
-    print g, ':', grammar[g]
+    print g, ':', str(' '.join([str(x) for x in grammar[g][0]])), grammar[g][1]
 
