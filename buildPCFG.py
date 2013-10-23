@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys, os
-import bz2
+import bz2, re
 from mangle import *
 
 if len (sys.argv) < 2 : 
@@ -12,7 +12,20 @@ if len (sys.argv) < 2 :
 password_dict = sys.argv[1];
 grammar=dict()
 
-
+#
+# ['S']  -> [ ('S2,L1,D3',1,20), ('L4,D3',1,34),.... 12332]
+# ['S2'] -> [('!!',0,12),('$%',0,23), .. 12312]
+# ['L1'] -> [('o',0,13),('a',0,67),....235]
+# ['D3'] -> [('132',0,32),('123',0,23)....3567]
+#
+#          ||
+#          ||
+#         \  /
+#          \/
+#
+# After the preprocessing is done this grammar is to converted,s.t.
+# Every rule, will contain the the CDF instead of probability
+#
 
 """
 gives what type of character it is.
@@ -20,6 +33,7 @@ Letter: L, Capitalized: C
 Digit: D, Symbol: S
 ManglingRule: M
 """
+regex = r'([a-z]+)|([0-9]+)|(\W+)'
 def whatChar( c ):
     if c.isalpha(): return 'L';
     if c.isdigit(): return 'D';
@@ -41,28 +55,22 @@ mangler = Mangle();
 def findPattern( w, withMangling=False ):
     P,W,T = [],[],[]
     i,j = 0, 0
-    Mstr = '';
-    Cinfo = getCapitalizeInfo ( w );
-    if withMangling: 
-        M,w = mangler.mangle(w);
-        if not M : return P
-        Mstr = 'M' + '-'.join([str(x) for x in M])
-    for c in w:
-        t = whatChar(c)
-        j+=1;
-        if not P: 
-            P.append( NonTerminal(t) );
-        else:
-            if not P[-1].add(t):
-                W.append( w[i:j-1].lower() );
-                i=j-1;
-                # if  #TODO
-                P.append( NonTerminal(t) )
-    W.append ( w[i:].lower() )
-    if Cinfo>0 : 
-        CinfoStr = 'C%d' % Cinfo;
-        T.append( NonTerminal(CinfoStr) );
-    if withMangling: T.append( NonTerminal(Mstr) )
+    W = [ sym for list_match in re.findall(regex, w.lower()) 
+          for sym in list_match if sym ]
+    P = [ "%s%d" % ( whatchar(x[0]), len(x)) for x in W ]
+
+    # TODO - HOWWWWWW?????!!!! Confused
+    # Mstr = '';
+    # Cinfo = getCapitalizeInfo ( w );
+    # if withMangling: 
+    #     M,w = mangler.mangle(w);
+    #     if not M : return P
+    #     Mstr = 'M' + '-'.join([str(x) for x in M])
+
+    # if Cinfo>0 : 
+    #     CinfoStr = 'C%d' % Cinfo;
+    #     T.append( NonTerminal(CinfoStr) );
+    # if withMangling: T.append( NonTerminal(Mstr) )
 
     return P,W,T;
 

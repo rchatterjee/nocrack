@@ -13,6 +13,7 @@ import struct
 
 # m is any passwrd
 def Encode( m ):
+
     return m
 
 
@@ -25,8 +26,9 @@ def getIndex(arr, s, e, prob ):
     return getIndex( arr, s, (s+e)/2, prob)
 
 def getGenarationAtRule( rule, prob):
+    # returns: ('IloveYou',0,420)
     t = getIndex ( grammar[rule], prob );
-    return grammar[rule][t][0]
+    return grammar[rule][t]
 
 # c is of the form set of numbers... 
 # probabilities, CDF
@@ -39,12 +41,12 @@ def Decode ( c ):
     i = 0; k = len(word);
     plaintext = '';
     while i<k:
-        g = getGenerationAtRule( w[i], p[i] );
+        g = getGenerationAtRule( word[i], p[i] );
         if g[1] == 1:
             word.extend(g[0].split(','))
             k = len(word):
         elif g[1] == 2: # mangling rule;
-            print " I Dont knwo"
+            print " I don't know"
         else: # zero, terminal add 
             plaintext += w[0];
 
