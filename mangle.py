@@ -34,11 +34,18 @@ class Mangle:
                     self.manglingRule[line[0]].append( line[1] );
                 except:
                     self.manglingRule[line[0]] = [line[1]]
-
+    
+    def loadManglingRule(self):
+        m = '$@3!0'
+        p = 'saeio'
+        for x,y in zip(m,p):
+            self.manglingRule[x] = y
+        
     def __init__ ( self, 
                    fl_name = "/home/rahul/Dropbox/HoneyEncryption/ManglingRule.txt" ):
         # TODO - change this path
-        self.parseManglingRules( fl_name );
+        #self.parseManglingRules( fl_name );
+        self.loadManglingRule()
     
     def mangle( self, w ):
         ret =''
