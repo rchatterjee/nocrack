@@ -8,19 +8,24 @@ home = expanduser("~");
 
 class NonTerminal:
     type_is = ''
+    isNonT = True;
     length = 0;
-    def __init__( self, _type_is, length=1 ):
+    def __init__( self, _type_is, length=1, isNT=True ):
         self.type_is = _type_is;
-        self.length = length
+        self.length  = length
+        self.isNonT  = isNT;
 
-    def add(self, _type_is ):
+    def add(self, _type_is, amt=1 ):
         if ( self.type_is == _type_is ):
-            self.length += 1; 
+            self.length += amt; 
             return True;
         return False;
 
     def __str__(self):
-        return "%s%d" %(self.type_is, self.length)
+        if self.type_is in ['S', 'L', 'D']:
+            return "%s%d" %(self.type_is, self.length)
+        else:
+            return "%s<%d>" %(self.type_is, self.length)
 
 class Mangle:
     manglingRule=dict()
