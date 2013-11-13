@@ -5,7 +5,7 @@ import bz2, re
 from mangle import *
 import marisa_trie
 EPSILON = '|_|'
-
+GRAMMAR_R=0
 
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),.... (EPSILON, 12332]
@@ -34,15 +34,23 @@ def whatchar( c ):
     if c.isdigit(): return 'D';
     else: return 'Y'
 
+inversemap=dict();
 def insertInGrammar ( grammar, pRule, w ):
+#        for x in grammar[pRule][0]:
+#            if x.add(w): grammar[pRule][1] += 1; return;
+    if not w.strip(): return;
     try:
-        for x in grammar[pRule][0]:
-            if x.add(w): grammar[pRule][1] += 1; return;
-        grammar[pRule][0].append( NonTerminal(w) )
-        grammar[pRule][1] += 1;
-    # print pRule, w
+        if grammar[pRule][0][inversemap[w]].add(w):
+            grammar[pRule][1] += 1; return;
     except:
-        grammar[pRule] = [[NonTerminal(w)], 1]
+        try:
+            grammar[pRule][0].append( NonTerminal(w) )
+            inversemap[w] = len(grammar[pRule][0])-1
+            grammar[pRule][1] += 1;
+    # print pRule, w
+        except:
+            grammar[pRule] = [[NonTerminal(w)], 1]
+            inversemap[w] = 0;
         
 mangler = Mangle(); # Not used still
 def findPattern( w, withMangling=False ):
@@ -71,19 +79,19 @@ def pushWordIntoGrammar( grammar, w, isMangling=False ) :
     # print ','.join([str(x) for x in P]),'~~', W,'~~', 
     # print  ','.join([str(x) for x in T])
     # insertInGrammar ( 'S', ','.join([str(x) for x in P]) )
-    for p in P:
-        insertInGrammar( grammar, 'S', str(p)+',S')
-    insertInGrammar ( grammar, 'S', EPSILON );
+    if GRAMMAR_R: # grammar is of the form S -> L1S | L2S | D3S .. etc | EPSILON
+        for p in P:
+            insertInGrammar( grammar, 'S', str(p)+',S')
+        insertInGrammar ( grammar, 'S', EPSILON );
+    else:
+        insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]) )
+        
     for p,w in zip(P,W):
         insertInGrammar(grammar, str(p), w);
     
     for t in T:
         insertInGrammar ( grammar, 'T', t )
     if isMangling : pushWordIntoGrammar ( w, True )
-
-def getNT ( w ):
-    return [','.join([str(x) for x in findPattern( w, False )]),
-            ','.join([str(x) for x in findPattern( w, True  )])]
 
 
 # P = [ NonTerminal(p[0], int(p[1]) ) for p in x.split(',')]
@@ -95,9 +103,30 @@ def convertToCDF(grammar):
         c = 0;
         # print rule,
         for nt in grammar[rule][0]:
-            nt.add(nt.type_is, c);
+            nt.add(nt.type_is, c+nt.length);
             c = nt.length
+        grammar[rule][1] = c
 
+def pushRandomCombinationIntoGrammar( grammar ) :
+    """
+    This is to support parsing all possible passwords. 
+    Artifical rules like, S -> L,S | D,S | Y,S
+    and L -> a|b|c|d..
+    D -> 1|3|4 etc
+    """
+    insertInGrammar( grammar, 'S', 'L1,S');
+    insertInGrammar( grammar, 'S', 'D1,S');
+    insertInGrammar( grammar, 'S', 'Y1,S');
+
+    for c in 'abcdefghijklmnopqrstuvwxyz':     
+        insertInGrammar( grammar, 'L1', c )
+    for d in '0123456789' :                    
+        insertInGrammar( grammar, 'D1', d )
+    for s in '!@#$%^&*()_-+=[{}]|\'";:<,.>?/': 
+        insertInGrammar( grammar, 'Y1', s )
+
+                         
+    
 def buildGrammar(password_dict):
     grammar  = dict()
     grammar['S'] = ([],0) 
@@ -107,8 +136,42 @@ def buildGrammar(password_dict):
         line = line.strip()
         pushWordIntoGrammar( grammar, line ) 
     f.close();
+    pushRandomCombinationIntoGrammar( grammar );
     return grammar
 
+def writePCFG( grammar, filename ):
+    with open(filename, 'w') as f:
+        for rule in grammar:
+            # S:L1,D3|123:L3,Y3|2134:65635
+            # L1:a|2:b|4:...
+            f.write( '%s:%s:%d\n' % 
+                     ( rule, 
+                       ':'.join(['%s|%d' %(x.type_is, x.length) 
+                                 for x in grammar[rule][0]]), 
+                       grammar[rule][1]) )
+
+
+def NonT( s ):
+    # type_is | length
+    if s.count('|') > 1:
+        x = s.split('|');
+        try:
+            return NonTerminal(''.join(x[-1]), x[-1])
+        except:
+            print "~~~><%s>" % s; 
+    x = s.split('|')
+    try:
+        return NonTerminal(x[0], int(x[1]));
+    except:
+        print "~~><%s>" % s; 
+
+def readPCFG( filename ):
+    grammar = dict()
+    with open(filename, 'r') as f:
+        for l in f.readlines():
+            x = l.strip().split(':')
+            grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
+    return grammar
 def main():
     if len (sys.argv) < 2 : 
         print 'Command: %s <password_dict>' % sys.argv[0]
@@ -123,7 +186,12 @@ def main():
     #for g in grammar:
     #    print g, ':', str(' '.join([str(x) for x in grammar[g][0]])), grammar[g][1]
     import pickle
-    pickle.dump( grammar, open('data/grammar.hny', 'wb'))
+    if GRAMMAR_R:
+        pickle.dump( grammar, open('data/grammar_r.hny', 'wb'))
+    else:
+        #pickle.dump( grammar, open('data/grammar.hny', 'wb'))
+        writePCFG( grammar, 'data/grammar.hny' )
+
     TrieSets.save( 'data/trie.hny');
 
 if __name__ == "__main__":

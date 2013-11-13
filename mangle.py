@@ -10,6 +10,7 @@ class NonTerminal:
     type_is = ''
     isNonT = True;
     length = 0;
+
     def __init__( self, _type_is, length=1, isNT=True ):
         self.type_is = _type_is;
         self.length  = length
