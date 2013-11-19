@@ -6,6 +6,21 @@ import sys, os
 from os.path import expanduser
 home = expanduser("~");
 
+def file_type(filename):
+    magic_dict = {
+        "\x1f\x8b\x08": "gz",
+        "\x42\x5a\x68": "bz2",
+        "\x50\x4b\x03\x04": "zip"
+        }
+    max_len = max(len(x) for x in magic_dict)
+    
+    with open(filename) as f:
+        file_start = f.read(max_len)
+    for magic, filetype in magic_dict.items():
+        if file_start.startswith(magic):
+            return filetype
+    return "no match"
+
 class NonTerminal:
     type_is = ''
     isNonT = True;
@@ -16,8 +31,8 @@ class NonTerminal:
         self.length  = length
         self.isNonT  = isNT;
 
-    def add(self, _type_is, amt=1 ):
-        if ( self.type_is == _type_is ):
+    def add(self, _type_is, amt=1, isNonT=0 ):
+        if ( self.type_is == _type_is and isNonT == self.isNonT ):
             self.length += amt; 
             return True;
         return False;

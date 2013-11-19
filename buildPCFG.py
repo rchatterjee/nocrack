@@ -6,7 +6,7 @@ from mangle import *
 import marisa_trie
 EPSILON = '|_|'
 GRAMMAR_R=0
-
+NONTERMINAL = 1
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),.... (EPSILON, 12332]
 # ['S2'] -> [('!!',0,12),('$%',0,23), .. 12312]
@@ -28,36 +28,35 @@ Letter: L, Capitalized: C
 Digit: D, Symbol: S
 ManglingRule: M
 """
-regex = r'([a-z]+)|([0-9]+)|(\W+)'
+regex = r'([A-Za-z]+)|([0-9]+)|(\W+)'
 def whatchar( c ):
     if c.isalpha(): return 'L';
     if c.isdigit(): return 'D';
     else: return 'Y'
 
 inversemap=dict();
-def insertInGrammar ( grammar, pRule, w ):
-#        for x in grammar[pRule][0]:
-#            if x.add(w): grammar[pRule][1] += 1; return;
+def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0 ):
     if not w.strip(): return;
+    if ( w == "L1,S" ): print pRule, w, count, isNonT
     try:
-        if grammar[pRule][0][inversemap[w]].add(w):
-            grammar[pRule][1] += 1; return;
+        if grammar[pRule][0][inversemap[w]].add(w, count, isNonT):
+            grammar[pRule][1] += count; return;
     except:
         try:
-            grammar[pRule][0].append( NonTerminal(w) )
+            grammar[pRule][0].append( NonTerminal(w, count, isNonT) )
             inversemap[w] = len(grammar[pRule][0])-1
-            grammar[pRule][1] += 1;
-    # print pRule, w
+            grammar[pRule][1] += count;
         except:
-            grammar[pRule] = [[NonTerminal(w)], 1]
+            grammar[pRule] = [[NonTerminal(w, count, isNonT)], 1]
             inversemap[w] = 0;
         
-mangler = Mangle(); # Not used still
+#mangler = Mangle(); # Not used still
 def findPattern( w, withMangling=False ):
     P,W,T = [],[],[]
     i,j = 0, 0
-    W = [ sym for list_match in re.findall(regex, w.lower()) 
+    W = [ sym for list_match in re.findall(regex, w) 
           for sym in list_match if sym ]
+    
     P = [ "%s%d" % ( whatchar(x[0]), len(x)) for x in W ]
     # TODO - HOWWWWWW?????!!!! Confused
     # Mstr = '';
@@ -74,21 +73,22 @@ def findPattern( w, withMangling=False ):
 
     return P,W,T;
 
-def pushWordIntoGrammar( grammar, w, isMangling=False ) :
+def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
     P,W,T = findPattern ( w, isMangling )
-    # print ','.join([str(x) for x in P]),'~~', W,'~~', 
-    # print  ','.join([str(x) for x in T])
-    # insertInGrammar ( 'S', ','.join([str(x) for x in P]) )
     if GRAMMAR_R: # grammar is of the form S -> L1S | L2S | D3S .. etc | EPSILON
         for p in P:
-            insertInGrammar( grammar, 'S', str(p)+',S')
+            insertInGrammar( grammar, 'S', str(p)+',S', count, NONTERMINAL ) # NonTerminal
         insertInGrammar ( grammar, 'S', EPSILON );
     else:
-        insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]) )
+        insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
         
     for p,w in zip(P,W):
-        insertInGrammar(grammar, str(p), w);
-    
+        insertInGrammar(grammar, str(p), w, count, 1-NONTERMINAL ); # Terminal
+        
+    # same like, iloveyou -> 0 | IloveU | ILoveYou etc..
+    # 0 => iloveyou
+    #if w.islower(): insertInGrammar( grammar, w, 0 )
+    #else: insertInGrammar ( grammar, w.lower(), w )
     for t in T:
         insertInGrammar ( grammar, 'T', t )
     if isMangling : pushWordIntoGrammar ( w, True )
@@ -103,7 +103,7 @@ def convertToCDF(grammar):
         c = 0;
         # print rule,
         for nt in grammar[rule][0]:
-            nt.add(nt.type_is, c+nt.length);
+            nt.length += c;
             c = nt.length
         grammar[rule][1] = c
 
@@ -114,29 +114,44 @@ def pushRandomCombinationIntoGrammar( grammar ) :
     and L -> a|b|c|d..
     D -> 1|3|4 etc
     """
-    insertInGrammar( grammar, 'S', 'L1,S');
-    insertInGrammar( grammar, 'S', 'D1,S');
-    insertInGrammar( grammar, 'S', 'Y1,S');
+    insertInGrammar( grammar, 'S', 'L1,S', 1, NONTERMINAL);
+    insertInGrammar( grammar, 'S', 'D1,S', 1, NONTERMINAL);
+    insertInGrammar( grammar, 'S', 'Y1,S', 1, NONTERMINAL);
 
     for c in 'abcdefghijklmnopqrstuvwxyz':     
-        insertInGrammar( grammar, 'L1', c )
+        insertInGrammar( grammar, 'L1', c, 1, 1-NONTERMINAL )
     for d in '0123456789' :                    
-        insertInGrammar( grammar, 'D1', d )
+        insertInGrammar( grammar, 'D1', d, 1, 1-NONTERMINAL )
     for s in '!@#$%^&*()_-+=[{}]|\'";:<,.>?/': 
-        insertInGrammar( grammar, 'Y1', s )
+        insertInGrammar( grammar, 'Y1', s, 1, 1-NONTERMINAL )
 
-                         
     
 def buildGrammar(password_dict):
     grammar  = dict()
     grammar['S'] = ([],0) 
     # start node ( [(w1,n1),(w2,n2),(w3,n3)..], n )
-    f=bz2.BZ2File(password_dict)
-    for line in f.readlines():
-        line = line.strip()
-        pushWordIntoGrammar( grammar, line ) 
+    if file_type(password_dict) == "bz2":
+        f=bz2.BZ2File(password_dict)
+    else:
+        f = open(password_dict);
+    reinsert_words = []
+    for n,line in enumerate(f.readlines()):
+        # if n%1000==0: print n;
+        line = line.strip().split()
+        if len(line) > 1 and line[0].isdigit():
+            w,c = ' '.join(line[1:]), int(line[0])
+        else:
+            w,c = ' '.join(line), 1
+        if w.islower() :
+            pushWordIntoGrammar( grammar, w, c )
+        else:
+            reinsert_words.append( w+'<>'+str(c) )
     f.close();
     pushRandomCombinationIntoGrammar( grammar );
+    if reinsert_words:
+        for w in reinsert_words:
+            w,c = w.split('<>')
+            pushWordIntoGrammar ( grammar, w, int(c));            
     return grammar
 
 def writePCFG( grammar, filename ):
@@ -146,22 +161,25 @@ def writePCFG( grammar, filename ):
             # L1:a|2:b|4:...
             f.write( '%s:%s:%d\n' % 
                      ( rule, 
-                       ':'.join(['%s|%d' %(x.type_is, x.length) 
+                       ':'.join(['%s|%d|%d' %(x.type_is, x.length, x.isNonT) 
                                  for x in grammar[rule][0]]), 
                        grammar[rule][1]) )
 
-
+#
+# What does this function do?
+# WRITE CLEARLY? !!
+#
 def NonT( s ):
     # type_is | length
-    if s.count('|') > 1:
+    if s.count('|') > 2:
         x = s.split('|');
         try:
-            return NonTerminal(''.join(x[-1]), x[-1])
+            return NonTerminal(''.join(x[:-2]), int(x[-2]), int(x[-1]))
         except:
             print "~~~><%s>" % s; 
     x = s.split('|')
     try:
-        return NonTerminal(x[0], int(x[1]));
+        return NonTerminal(x[0], int(x[1]), int(x[2]));
     except:
         print "~~><%s>" % s; 
 
@@ -179,8 +197,8 @@ def main():
         
     password_dict = sys.argv[1];
     grammar = buildGrammar(password_dict)
-    # print [ str(w) for w in grammar['S'][0]]
-    Words = [ w.type_is for rule in grammar for w in grammar[rule][0] if rule != 'S']
+    Words = [ unicode(w.type_is, errors='ignore') for rule in grammar for w in grammar[rule][0] if rule != 'S']
+    # print Words
     TrieSets = marisa_trie.Trie(Words);
     convertToCDF(grammar);
     #for g in grammar:

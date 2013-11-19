@@ -17,7 +17,7 @@ import pickle
 
 PASSWORD_LENGTH = 16
 DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
-
+NONTERMINAL = 1
 # IDEA:  every genrule could be kept in a Trie.
 # DRAWBACK: it is unlikely that those words will share
 # much prefix of each other...:p
@@ -50,7 +50,7 @@ def loadDicAndTrie(dFile, tFile) :
 
 
 def getVal( arr, val ):
-    print val, '---\n', [str(s) for s in arr[0]];
+    # print val, '---\n', [str(s) for s in arr[0]];
     for i,x in enumerate(arr[0]):
         if x.type_is == val:
             if i==0: a = 0;
@@ -77,7 +77,8 @@ def getGenerationAtRule( rule, prob, grammar):
     return grammar[rule][0][t]
 
 def isNonT( rule ):
-    return rule.isupper() 
+    regx = r'[LDY][0-9]+,'
+#    return rule.isupper() and 
 
 def Encode_spcl( m, trie, grammar ):
     print "Special Encoding::::"
@@ -115,14 +116,14 @@ def Encode( m, trie, grammar ):
             return Encode_spcl( m, trie, grammar );
         else: E.append( float(t)/grammar['S'][1] );
         
-    print P
+    # print P
     for p,w in zip(P,W):
         t=getVal(grammar[p], w)
         E.append( float(t)/grammar[p][1] )
     if GRAMMAR_R:
         E.append( float(getVal(grammar['S'], EPSILON ))/grammar['S'][1] )
     
-    print "Actual:", E;
+    # print "Actual:", E;
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(E);
         E.extend( [ random.random() for x in range(extra) ] )
@@ -142,18 +143,18 @@ def Decode ( c, grammar ):
     queue = deque(['S']);
     for p in P:
         try:
-            g = getGenerationAtRule( queue.popleft(), p, grammar ).type_is
+            g = getGenerationAtRule( queue.popleft(), p, grammar )
         except: 
             # print "empty queue"
             break;
-        if isNonT(g):
-            queue.extend(g.split(','))
+        if g.isNonT == NONTERMINAL: 
+            queue.extend(g.type_is.split(','))
             # TODO
         #elif g[1] == 2: # mangling rule;
         #    print " I don't know"
         else: # zero, terminal add 
-            if GRAMMAR_R and g == EPSILON: break
-            plaintext += g
+            if GRAMMAR_R and g.type_is == EPSILON: break
+            plaintext += g.type_is
             #print "Decode:", g, '<%s>'%plaintext; # break;
     #print queue, p, '<=>', plaintext
     return plaintext
@@ -180,6 +181,6 @@ def main():
     c_struct = struct.pack('%sf' % len(c), *c )
     m = Decode(c_struct, grammar);
     print "After Decoding:", m
-#    for i in range(1000): testRandomDecoding( grammar );
+    for i in range(10): testRandomDecoding( grammar );
 if __name__ == "__main__":
     main();
