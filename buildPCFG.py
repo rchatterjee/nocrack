@@ -2,7 +2,6 @@
 
 import sys, os
 import bz2, re
-from mangle import *
 import marisa_trie, json
 
 # For checking memory usage
@@ -12,6 +11,24 @@ EPSILON = '|_|'
 GRAMMAR_R=0
 NONTERMINAL = 1
 MEMLIMMIT = 1024 # 1024 MB, 1GB
+
+from os.path import (expanduser, basename)
+home = expanduser("~");
+
+def file_type(filename):
+    magic_dict = {
+        "\x1f\x8b\x08": "gz",
+        "\x42\x5a\x68": "bz2",
+        "\x50\x4b\x03\x04": "zip"
+        }
+    max_len = max(len(x) for x in magic_dict)
+    
+    with open(filename) as f:
+        file_start = f.read(max_len)
+    for magic, filetype in magic_dict.items():
+        if file_start.startswith(magic):
+            return filetype
+    return "no match"
 
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),.... (EPSILON, 12332]
@@ -158,7 +175,7 @@ please increase the limit or use smaller data set.
 Lines processed, %d
 """ % n
                 break;
-            resource_tracker += r/10+100; 
+            resource_tracker += r/10+100;
         # if n%1000==0: print n;
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
@@ -184,7 +201,8 @@ Lines processed, %d
 
 def writePCFG( grammar, filename ):
     with bz2.BZ2File(filename, 'wb') as f:
-        json.dump(g, f, indent=2, separators=(',',':'))
+        print "Num grammar keys:", len(grammar.keys())
+        json.dump(grammar, f, indent=2, separators=(',',':'))
 
         # for rule in grammar:
         #     f.write( '%s:%s:%d\n' % 
@@ -215,34 +233,38 @@ def writePCFG( grammar, filename ):
 def readPCFG( filename ):
     # grammar = dict()
     with bz2.BZ2File(filename, 'rb') as f:
-        return json.load(f);
+        grammar = json.load(f);
+        print "Num grammar keys:", len(grammar.keys())        
+        return grammar
     #     for l in f:
     #         x = l.strip().split(':')
     #         grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
     # return grammar
 
+def getfilenames( fname_origin ):
+    fname_origin = basename(fname_origin);
+    fname_origin = fname_origin.replace(".txt.bz2", '')
+    return "data/grammar_%s.hny.bz2" % fname_origin, "data/trie_%s.hny.bz2" % fname_origin, 
+
 def main():
     if len (sys.argv) < 2 : 
         print 'Command: %s <password_dict>' % sys.argv[0]
         exit(-1)
-        
+    grammar_flname, trie_flname = getfilenames( sys.argv[1] )
+    if os.path.exists(grammar_flname) and os.path.exists(trie_flname):
+        sys.stderr.write( "---->'%s' and '%s' already exists!\nIf you want to force, remove those files first.\nExisting!!\n" % (grammar_flname, trie_flname) )
+        return;
     password_dict = sys.argv[1];
     grammar = buildGrammar(password_dict)
-    #Words = [ unicode(w[0], errors='ignore') for rule in grammar for w in grammar[rule][0] if rule != 'S']
-    # print Words
-    TrieSets = marisa_trie.Trie(inversemap.keys());
     convertToCDF(grammar);
-    #for g in grammar:
-    #    print g, ':', str(' '.join([str(x) for x in grammar[g][0]])), grammar[g][1]
-    import pickle
     if GRAMMAR_R:
-        pickle.dump( grammar, open('data/grammar_r.hny', 'wb'))
+        import pickle
+        pickle.dump( grammar, open(grammar_flname, 'wb'))
     else:
         #pickle.dump( grammar, open('data/grammar.hny', 'wb'))
-        writePCFG( grammar, 'data/grammar_json.hny.bz2' )
-
-    TrieSets.save( 'data/trie.hny');
-
+        writePCFG( grammar, grammar_flname )
+    marisa_trie.Trie(inversemap.keys()).save( trie_flname );
+    
 def main_modify() :
     g = readPCFG('data/grammar_json.hny.bz2');
     with bz2.BZ2File('data/grammar_json.hny.bz2', 'wb') as f:
@@ -251,5 +273,4 @@ def main_modify() :
     
 if __name__ == "__main__":
     main();
-    #main_modify();
     
