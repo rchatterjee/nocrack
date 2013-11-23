@@ -35,6 +35,8 @@ def break_into_words( w, trie ):
     if not prefix: return [];
     if prefix[0] == w: return [w];
     for p in prefix:
+        if not p or len(p) == 0:
+            print p; return [];
         W = break_into_words( w[len(p):], trie )
         if W:
             Wlist.append(p)
@@ -98,8 +100,10 @@ def Encode_spcl( m, trie, grammar ):
         extra = PASSWORD_LENGTH - len(E);
         E.extend( [ random.random() for x in range(extra) ] )
     return E;
-        
+
+spcl_count=0;        
 def Encode( m, trie, grammar ):
+    global spcl_count;
     W = break_into_words(m, trie)
     P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
     E = []
@@ -113,6 +117,7 @@ def Encode( m, trie, grammar ):
     else: # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
         t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
         if t==-1: # use the default .* parsing rule..:P 
+            spcl_count += 1; return '';
             return Encode_spcl( m, trie, grammar );
         else: E.append( float(t)/grammar['S'][1] );
         
@@ -169,12 +174,26 @@ def testRandomDecoding(grammar):
     c = struct.pack('%sf' % len(x), *x)
     print Decode(c, grammar)
     
+def testEncoding ( grammar, trie ):
+    count,c = 0,0;
+    for l in sys.stdin.readlines():
+        l = l.strip();
+        c += 1;
+        if not Encode(l, trie, grammar): 
+            print l;
+    print "Failed:", spcl_count
+    print "Total:", c
+    
+        
+import resource
+
 def main():
     if GRAMMAR_R:
         grammar, trie = loadDicAndTrie( 'data/grammar_r.hny', 'data/trie.hny');
     else:
-        grammar, trie = loadDicAndTrie( 'data/grammar.hny', 'data/trie.hny');   
-
+        grammar, trie = loadDicAndTrie( 'data/grammar.hny.bz2', 'data/trie.hny');   
+    print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+    testEncoding(grammar, trie); return;
     p= 'rahulc12' # sys.stdin.readline().strip()
     c = Encode(p, trie, grammar);
     print "Encoding:", c

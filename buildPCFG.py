@@ -4,9 +4,15 @@ import sys, os
 import bz2, re
 from mangle import *
 import marisa_trie
+
+# For checking memory usage
+import resource
+
 EPSILON = '|_|'
 GRAMMAR_R=0
 NONTERMINAL = 1
+MEMLIMMIT = 1024 # 1024 MB, 1GB
+
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),.... (EPSILON, 12332]
 # ['S2'] -> [('!!',0,12),('$%',0,23), .. 12312]
@@ -37,7 +43,7 @@ def whatchar( c ):
 inversemap=dict();
 def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0 ):
     if not w.strip(): return;
-    if ( w == "L1,S" ): print pRule, w, count, isNonT
+    # if ( w == "L1,S" ): print pRule, w, count, isNonT
     try:
         if grammar[pRule][0][inversemap[w]].add(w, count, isNonT):
             grammar[pRule][1] += count; return;
@@ -107,7 +113,7 @@ def convertToCDF(grammar):
             c = nt.length
         grammar[rule][1] = c
 
-def pushRandomCombinationIntoGrammar( grammar ) :
+def push_DotStar_IntoGrammar( grammar ) :
     """
     This is to support parsing all possible passwords. 
     Artifical rules like, S -> L,S | D,S | Y,S
@@ -124,8 +130,9 @@ def pushRandomCombinationIntoGrammar( grammar ) :
         insertInGrammar( grammar, 'D1', d, 1, 1-NONTERMINAL )
     for s in '!@#$%^&*()_-+=[{}]|\'";:<,.>?/': 
         insertInGrammar( grammar, 'Y1', s, 1, 1-NONTERMINAL )
-
+    # mangling_rule={'a':'@', 's':'$', 'o':'0', 'i':'!'}
     
+                   
 def buildGrammar(password_dict):
     grammar  = dict()
     grammar['S'] = ([],0) 
@@ -135,27 +142,45 @@ def buildGrammar(password_dict):
     else:
         f = open(password_dict);
     reinsert_words = []
-    for n,line in enumerate(f.readlines()):
+    # resource track
+    resource_tracker = 10240;
+    for n,line in enumerate(f):
+        if n>resource_tracker:
+            r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            print "Memory Usage:", (MEMLIMMIT - r/1024.0);
+            if (r < 0 ):
+                print """
+Hitting the memory limmit of 1GB,
+please increase the limit or use smaller data set.
+Lines processed, %d
+""" % n
+                break;
+            resource_tracker += r/10+100; 
         # if n%1000==0: print n;
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
             w,c = ' '.join(line[1:]), int(line[0])
         else:
             w,c = ' '.join(line), 1
+        try: w.decode('ascii')
+        except: continue; # not ascii hence return
+
         if w.islower() :
             pushWordIntoGrammar( grammar, w, c )
         else:
             reinsert_words.append( w+'<>'+str(c) )
     f.close();
-    pushRandomCombinationIntoGrammar( grammar );
+    push_DotStar_IntoGrammar( grammar );
     if reinsert_words:
         for w in reinsert_words:
-            w,c = w.split('<>')
-            pushWordIntoGrammar ( grammar, w, int(c));            
+            w = w.split('<>')
+            c = int(w[-1])
+            w = '<>'.join(w[:-1])
+            pushWordIntoGrammar ( grammar, w, c);            
     return grammar
 
 def writePCFG( grammar, filename ):
-    with open(filename, 'w') as f:
+    with bz2.BZ2File(filename, 'wb') as f:
         for rule in grammar:
             # S:L1,D3|123:L3,Y3|2134:65635
             # L1:a|2:b|4:...
@@ -176,20 +201,21 @@ def NonT( s ):
         try:
             return NonTerminal(''.join(x[:-2]), int(x[-2]), int(x[-1]))
         except:
-            print "~~~><%s>" % s; 
+            sys.stderr.write( "~~~><%s>\n" % s ); 
     x = s.split('|')
     try:
         return NonTerminal(x[0], int(x[1]), int(x[2]));
     except:
-        print "~~><%s>" % s; 
+        sys.stderr.write("~~><%s>\n" % s); 
 
 def readPCFG( filename ):
     grammar = dict()
-    with open(filename, 'r') as f:
-        for l in f.readlines():
+    with bz2.BZ2File(filename, 'rb') as f:
+        for l in f:
             x = l.strip().split(':')
             grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
     return grammar
+
 def main():
     if len (sys.argv) < 2 : 
         print 'Command: %s <password_dict>' % sys.argv[0]
@@ -197,9 +223,9 @@ def main():
         
     password_dict = sys.argv[1];
     grammar = buildGrammar(password_dict)
-    Words = [ unicode(w.type_is, errors='ignore') for rule in grammar for w in grammar[rule][0] if rule != 'S']
+    #Words = [ unicode(w.type_is, errors='ignore') for rule in grammar for w in grammar[rule][0] if rule != 'S']
     # print Words
-    TrieSets = marisa_trie.Trie(Words);
+    TrieSets = marisa_trie.Trie(inversemap.keys());
     convertToCDF(grammar);
     #for g in grammar:
     #    print g, ':', str(' '.join([str(x) for x in grammar[g][0]])), grammar[g][1]
@@ -208,7 +234,7 @@ def main():
         pickle.dump( grammar, open('data/grammar_r.hny', 'wb'))
     else:
         #pickle.dump( grammar, open('data/grammar.hny', 'wb'))
-        writePCFG( grammar, 'data/grammar.hny' )
+        writePCFG( grammar, 'data/grammar.hny.bz2' )
 
     TrieSets.save( 'data/trie.hny');
 
