@@ -3,7 +3,7 @@
 import sys, os
 import bz2, re
 from mangle import *
-import marisa_trie
+import marisa_trie, json
 
 # For checking memory usage
 import resource
@@ -45,15 +45,18 @@ def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0 ):
     if not w.strip(): return;
     # if ( w == "L1,S" ): print pRule, w, count, isNonT
     try:
-        if grammar[pRule][0][inversemap[w]].add(w, count, isNonT):
-            grammar[pRule][1] += count; return;
+        s = grammar[pRule][0][inversemap[w]]
+        assert s[0]==w and s[2] == isNonT;
+        s[1] += count
+        grammar[pRule][1] += count; 
+        return;
     except:
         try:
-            grammar[pRule][0].append( NonTerminal(w, count, isNonT) )
+            grammar[pRule][0].append( [w, count, isNonT] )
             inversemap[w] = len(grammar[pRule][0])-1
             grammar[pRule][1] += count;
         except:
-            grammar[pRule] = [[NonTerminal(w, count, isNonT)], 1]
+            grammar[pRule] = [[[w, count, isNonT]], 1]
             inversemap[w] = 0;
         
 #mangler = Mangle(); # Not used still
@@ -74,8 +77,8 @@ def findPattern( w, withMangling=False ):
 
     # if Cinfo>0 : 
     #     CinfoStr = 'C%d' % Cinfo;
-    #     T.append( NonTerminal(CinfoStr) );
-    # if withMangling: T.append( NonTerminal(Mstr) )
+    #     T.append( [CinfoStr) );
+    # if withMangling: T.append( [Mstr) )
 
     return P,W,T;
 
@@ -100,7 +103,7 @@ def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
     if isMangling : pushWordIntoGrammar ( w, True )
 
 
-# P = [ NonTerminal(p[0], int(p[1]) ) for p in x.split(',')]
+# P = [ [p[0], int(p[1]) ) for p in x.split(',')]
 # for p in P:
 #     print p;
 
@@ -109,8 +112,8 @@ def convertToCDF(grammar):
         c = 0;
         # print rule,
         for nt in grammar[rule][0]:
-            nt.length += c;
-            c = nt.length
+            nt[1] += c;
+            c = nt[1]
         grammar[rule][1] = c
 
 def push_DotStar_IntoGrammar( grammar ) :
@@ -147,7 +150,7 @@ def buildGrammar(password_dict):
     for n,line in enumerate(f):
         if n>resource_tracker:
             r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-            print "Memory Usage:", (MEMLIMMIT - r/1024.0);
+            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n;
             if (r < 0 ):
                 print """
 Hitting the memory limmit of 1GB,
@@ -181,40 +184,42 @@ Lines processed, %d
 
 def writePCFG( grammar, filename ):
     with bz2.BZ2File(filename, 'wb') as f:
-        for rule in grammar:
-            # S:L1,D3|123:L3,Y3|2134:65635
-            # L1:a|2:b|4:...
-            f.write( '%s:%s:%d\n' % 
-                     ( rule, 
-                       ':'.join(['%s|%d|%d' %(x.type_is, x.length, x.isNonT) 
-                                 for x in grammar[rule][0]]), 
-                       grammar[rule][1]) )
+        json.dump(g, f, indent=2, separators=(',',':'))
+
+        # for rule in grammar:
+        #     f.write( '%s:%s:%d\n' % 
+        #              ( rule, 
+        #                ':'.join(['%s|%d|%d' %(x[0], x[1], x[2]) 
+        #                          for x in grammar[rule][0]]), 
+        #                grammar[rule][1]) )
 
 #
 # What does this function do?
-# WRITE CLEARLY? !!
+# converts a string into NonTerminal Object
+# Not required after json trick
 #
-def NonT( s ):
-    # type_is | length
-    if s.count('|') > 2:
-        x = s.split('|');
-        try:
-            return NonTerminal(''.join(x[:-2]), int(x[-2]), int(x[-1]))
-        except:
-            sys.stderr.write( "~~~><%s>\n" % s ); 
-    x = s.split('|')
-    try:
-        return NonTerminal(x[0], int(x[1]), int(x[2]));
-    except:
-        sys.stderr.write("~~><%s>\n" % s); 
+# def NonT( s ):
+#     # type_is | length
+#     if s.count('|') > 2:
+#         x = s.split('|');
+#         try:
+#             return [''.join(x[:-2]), int(x[-2]), int(x[-1])]
+#         except:
+#             sys.stderr.write( "~~~><%s>\n" % s ); 
+#     x = s.split('|')
+#     try:
+#         return [x[0], int(x[1]), int(x[2])];
+#     except:
+#         sys.stderr.write("~~><%s>\n" % s); 
 
 def readPCFG( filename ):
-    grammar = dict()
+    # grammar = dict()
     with bz2.BZ2File(filename, 'rb') as f:
-        for l in f:
-            x = l.strip().split(':')
-            grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
-    return grammar
+        return json.load(f);
+    #     for l in f:
+    #         x = l.strip().split(':')
+    #         grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
+    # return grammar
 
 def main():
     if len (sys.argv) < 2 : 
@@ -223,7 +228,7 @@ def main():
         
     password_dict = sys.argv[1];
     grammar = buildGrammar(password_dict)
-    #Words = [ unicode(w.type_is, errors='ignore') for rule in grammar for w in grammar[rule][0] if rule != 'S']
+    #Words = [ unicode(w[0], errors='ignore') for rule in grammar for w in grammar[rule][0] if rule != 'S']
     # print Words
     TrieSets = marisa_trie.Trie(inversemap.keys());
     convertToCDF(grammar);
@@ -234,10 +239,17 @@ def main():
         pickle.dump( grammar, open('data/grammar_r.hny', 'wb'))
     else:
         #pickle.dump( grammar, open('data/grammar.hny', 'wb'))
-        writePCFG( grammar, 'data/grammar.hny.bz2' )
+        writePCFG( grammar, 'data/grammar_json.hny.bz2' )
 
     TrieSets.save( 'data/trie.hny');
 
+def main_modify() :
+    g = readPCFG('data/grammar_json.hny.bz2');
+    with bz2.BZ2File('data/grammar_json.hny.bz2', 'wb') as f:
+        f.write("#!/usr/bin/python\n\ngrammar=");
+        json.dump(g, f, indent=2, separators=(',',':'))
+    
 if __name__ == "__main__":
     main();
+    #main_modify();
     

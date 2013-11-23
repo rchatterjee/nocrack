@@ -54,10 +54,10 @@ def loadDicAndTrie(dFile, tFile) :
 def getVal( arr, val ):
     # print val, '---\n', [str(s) for s in arr[0]];
     for i,x in enumerate(arr[0]):
-        if x.type_is == val:
+        if x[0] == val:
             if i==0: a = 0;
-            else: a = arr[0][i-1].length;
-            t = random.randint( a, x.length-1 )
+            else: a = arr[0][i-1][1];
+            t = random.randint( a, x[1]-1 )
             return t;
     return -1
 
@@ -73,14 +73,10 @@ def getIndex( arr, s, e, x ):
 def getGenerationAtRule( rule, prob, grammar):
     # returns: ('IloveYou',0,420)
     d = [0]
-    d.extend([x.length for x in grammar[rule][0]])
+    d.extend([x[1] for x in grammar[rule][0]])
     #print [str(x) for x in grammar[rule][0]], round(prob*grammar[rule][1])
     t = getIndex ( d, 0, len(d)-1, round(prob*grammar[rule][1])) - 1;
     return grammar[rule][0][t]
-
-def isNonT( rule ):
-    regx = r'[LDY][0-9]+,'
-#    return rule.isupper() and 
 
 def Encode_spcl( m, trie, grammar ):
     print "Special Encoding::::"
@@ -152,14 +148,14 @@ def Decode ( c, grammar ):
         except: 
             # print "empty queue"
             break;
-        if g.isNonT == NONTERMINAL: 
-            queue.extend(g.type_is.split(','))
+        if g[1] == NONTERMINAL: 
+            queue.extend(g[0].split(','))
             # TODO
         #elif g[1] == 2: # mangling rule;
         #    print " I don't know"
         else: # zero, terminal add 
-            if GRAMMAR_R and g.type_is == EPSILON: break
-            plaintext += g.type_is
+            if GRAMMAR_R and g[0] == EPSILON: break
+            plaintext += g[0]
             #print "Decode:", g, '<%s>'%plaintext; # break;
     #print queue, p, '<=>', plaintext
     return plaintext
@@ -191,7 +187,7 @@ def main():
     if GRAMMAR_R:
         grammar, trie = loadDicAndTrie( 'data/grammar_r.hny', 'data/trie.hny');
     else:
-        grammar, trie = loadDicAndTrie( 'data/grammar.hny.bz2', 'data/trie.hny');   
+        grammar, trie = loadDicAndTrie( 'data/grammar_json.hny.bz2', 'data/trie.hny');   
     print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
     testEncoding(grammar, trie); return;
     p= 'rahulc12' # sys.stdin.readline().strip()
