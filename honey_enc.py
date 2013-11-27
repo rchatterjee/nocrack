@@ -9,11 +9,11 @@ it needs a PCFG in the following format.
 import sys, os
 from io import BytesIO
 import struct
-from buildPCFG import whatchar, readPCFG
+from buildPCFG import whatchar, readPCFG, getfilenames
 from buildPCFG import EPSILON, GRAMMAR_R
 #from loadDic import break_into_words
 import random, marisa_trie
-import pickle
+import bz2 
 
 PASSWORD_LENGTH = 16
 DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
@@ -29,7 +29,8 @@ def break_into_words( w, trie ):
     if n==1 : return [w];
     if n==0 : return [];
     Wlist = []
-    prefix = trie.prefixes( unicode(w) );
+    try: prefix = trie.prefixes( unicode(w) );
+    except: return []
     # print prefix
     prefix.reverse()
     if not prefix: return [];
@@ -97,9 +98,7 @@ def Encode_spcl( m, trie, grammar ):
         E.extend( [ random.random() for x in range(extra) ] )
     return E;
 
-spcl_count=0;        
 def Encode( m, trie, grammar ):
-    global spcl_count;
     W = break_into_words(m, trie)
     P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
     E = []
@@ -113,8 +112,8 @@ def Encode( m, trie, grammar ):
     else: # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
         t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
         if t==-1: # use the default .* parsing rule..:P 
-            spcl_count += 1; return '';
-            return Encode_spcl( m, trie, grammar );
+            return ''; 
+            # return Encode_spcl( m, trie, grammar );
         else: E.append( float(t)/grammar['S'][1] );
         
     # print P
@@ -148,7 +147,7 @@ def Decode ( c, grammar ):
         except: 
             # print "empty queue"
             break;
-        if g[1] == NONTERMINAL: 
+        if g[2] == NONTERMINAL: 
             queue.extend(g[0].split(','))
             # TODO
         #elif g[1] == 2: # mangling rule;
@@ -163,40 +162,29 @@ def Decode ( c, grammar ):
 def writePasswords ( p ):
     # writes the encoded passwords.. 
     f = open("password_vault.hny", 'w')
-
-def testRandomDecoding(grammar):
- #   print "Testing....:"
-    x = [ random.random() for x in range(PASSWORD_LENGTH) ]
-    c = struct.pack('%sf' % len(x), *x)
-    print Decode(c, grammar)
-    
-def testEncoding ( grammar, trie ):
-    count,c = 0,0;
-    for l in sys.stdin.readlines():
-        l = l.strip();
-        c += 1;
-        if not Encode(l, trie, grammar): 
-            print l;
-    print "Failed:", spcl_count
-    print "Total:", c
     
         
 import resource
-
 def main():
+    grammar_flname, trie_flname = "data/grammar.hny.bz2", "data/trie.hny"
+    if len (sys.argv) > 1 : 
+            grammar_flname, trie_flname = getfilenames(sys.argv[1])
+    else:
+        print 'Command: %s <password_dict_name>' % sys.argv[0]
+        print 'Taking defaults,', grammar_flname, trie_flname
+        
     if GRAMMAR_R:
         grammar, trie = loadDicAndTrie( 'data/grammar_r.hny', 'data/trie.hny');
     else:
-        grammar, trie = loadDicAndTrie( 'data/grammar_json.hny.bz2', 'data/trie.hny');   
-    print resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-    testEncoding(grammar, trie); return;
-    p= 'rahulc12' # sys.stdin.readline().strip()
+        grammar, trie = loadDicAndTrie( grammar_flname, trie_flname );   
+    print "Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+    # testEncoding(grammar, trie); return;
+    p='rahulc12' # sys.stdin.readline().strip()
     c = Encode(p, trie, grammar);
     print "Encoding:", c
     c_struct = struct.pack('%sf' % len(c), *c )
     m = Decode(c_struct, grammar);
     print "After Decoding:", m
-    for i in range(10): testRandomDecoding( grammar );
 
 if __name__ == "__main__":
     main();
