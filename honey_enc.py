@@ -112,8 +112,8 @@ def Encode( m, trie, grammar ):
     else: # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
         t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
         if t==-1: # use the default .* parsing rule..:P 
-            return ''; 
-            # return Encode_spcl( m, trie, grammar );
+            #return ''; 
+            return Encode_spcl( m, trie, grammar );
         else: E.append( float(t)/grammar['S'][1] );
         
     # print P
