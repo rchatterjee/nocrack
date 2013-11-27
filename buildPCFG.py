@@ -106,6 +106,13 @@ def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
 # P = [ [p[0], int(p[1]) ) for p in x.split(',')]
 # for p in P:
 #     print p;
+def convertToPDF(grammar):
+    for rule in grammar:
+        c = 0;
+        # print rule,
+        for nt in grammar[rule][0]:
+            c, nt[1] = nt[1], nt[1]-c;
+
 
 def convertToCDF(grammar):
     for rule in grammar:
