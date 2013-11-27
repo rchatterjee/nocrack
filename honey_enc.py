@@ -197,5 +197,6 @@ def main():
     m = Decode(c_struct, grammar);
     print "After Decoding:", m
     for i in range(10): testRandomDecoding( grammar );
+
 if __name__ == "__main__":
     main();

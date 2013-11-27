@@ -186,40 +186,9 @@ def writePCFG( grammar, filename ):
     with bz2.BZ2File(filename, 'wb') as f:
         json.dump(g, f, indent=2, separators=(',',':'))
 
-        # for rule in grammar:
-        #     f.write( '%s:%s:%d\n' % 
-        #              ( rule, 
-        #                ':'.join(['%s|%d|%d' %(x[0], x[1], x[2]) 
-        #                          for x in grammar[rule][0]]), 
-        #                grammar[rule][1]) )
-
-#
-# What does this function do?
-# converts a string into NonTerminal Object
-# Not required after json trick
-#
-# def NonT( s ):
-#     # type_is | length
-#     if s.count('|') > 2:
-#         x = s.split('|');
-#         try:
-#             return [''.join(x[:-2]), int(x[-2]), int(x[-1])]
-#         except:
-#             sys.stderr.write( "~~~><%s>\n" % s ); 
-#     x = s.split('|')
-#     try:
-#         return [x[0], int(x[1]), int(x[2])];
-#     except:
-#         sys.stderr.write("~~><%s>\n" % s); 
-
 def readPCFG( filename ):
-    # grammar = dict()
     with bz2.BZ2File(filename, 'rb') as f:
         return json.load(f);
-    #     for l in f:
-    #         x = l.strip().split(':')
-    #         grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
-    # return grammar
 
 def main():
     if len (sys.argv) < 2 : 
