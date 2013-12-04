@@ -6,10 +6,10 @@ it needs a PCFG in the following format.
 
 """
 
-import sys, os
+import sys, os, math
 from io import BytesIO
 import struct
-from buildPCFG import whatchar, readPCFG, getfilenames
+from buildPCFG import whatchar, readPCFG, getfilenames, convertToPDF
 from buildPCFG import EPSILON, GRAMMAR_R
 #from loadDic import break_into_words
 import random, marisa_trie
@@ -49,17 +49,22 @@ def loadDicAndTrie(dFile, tFile) :
     #grammar = pickle.load(open(dFile, 'rb'))
     grammar = readPCFG( dFile );
     trie    = marisa_trie.Trie().load( tFile )
+    if grammar['S'][0][-1][1] == grammar['S'][1]:
+        convertToPDF(grammar)
     return grammar, trie
 
 
 def getVal( arr, val ):
     # print val, '---\n', [str(s) for s in arr[0]];
+    c=0
     for i,x in enumerate(arr[0]):
+        c += x[1]
         if x[0] == val:
             if i==0: a = 0;
-            else: a = arr[0][i-1][1];
-            t = random.randint( a, x[1]-1 )
-            return t;
+            else: a = c - x[1]
+            t = random.randint( a, a+x[1]-1 )
+            p = t + random.randint(0, 4294967295/arr[1]) * arr[1]
+            return p # + random.randint(0, 123456)*arr[1];
     return -1
 
 def getIndex( arr, s, e, x ):
@@ -75,8 +80,11 @@ def getGenerationAtRule( rule, prob, grammar):
     # returns: ('IloveYou',0,420)
     d = [0]
     d.extend([x[1] for x in grammar[rule][0]])
-    #print [str(x) for x in grammar[rule][0]], round(prob*grammar[rule][1])
-    t = getIndex ( d, 0, len(d)-1, round(prob*grammar[rule][1])) - 1;
+    for i in xrange(1, len(d)):
+        d[i] += d[i-1];
+    prob = prob % grammar[rule][1]
+    t = getIndex ( d, 0, len(d)-1, prob ) - 1;
+
     return grammar[rule][0][t]
 
 def Encode_spcl( m, trie, grammar ):
@@ -85,14 +93,10 @@ def Encode_spcl( m, trie, grammar ):
     P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
     E = [];
     for w,p in zip(W[:-1], P[:-1]):
-        E.append( float(getVal( grammar['S'], p+',S'))/
-                  grammar['S'][1] )
-        E.append( float(getVal( grammar[ p ], w ))/
-                  grammar[ p ][1]);
-    E.append( float(getVal( grammar[ 'S' ], P[-1]))/
-              grammar['S'][1])
-    E.append( float(getVal( grammar[P[-1]], W[-1]))/
-              grammar[P[-1]][1]);
+        E.append( getVal( grammar['S'], p+',S') )
+        E.append( getVal( grammar[ p ], w ) );
+    E.append( getVal( grammar[ 'S' ], P[-1]))
+    E.append( getVal( grammar[P[-1]], W[-1]));
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(E);
         E.extend( [ random.random() for x in range(extra) ] )
@@ -108,20 +112,20 @@ def Encode( m, trie, grammar ):
             t = getVal(grammar['S'], p+',S');
             if t==-1: print "Not found", p; raise
             # TODO: it should never occur.. but will check
-            else: E.append( float(t)/grammar['S'][1] );
+            else: E.append( t );
     else: # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
         t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
         if t==-1: # use the default .* parsing rule..:P 
             #return ''; 
             return Encode_spcl( m, trie, grammar );
-        else: E.append( float(t)/grammar['S'][1] );
+        else: E.append( t );
         
     # print P
     for p,w in zip(P,W):
         t=getVal(grammar[p], w)
-        E.append( float(t)/grammar[p][1] )
+        E.append( t )
     if GRAMMAR_R:
-        E.append( float(getVal(grammar['S'], EPSILON ))/grammar['S'][1] )
+        E.append( getVal(grammar['S'], EPSILON ) )
     
     # print "Actual:", E;
     if PASSWORD_LENGTH>0:
@@ -135,10 +139,10 @@ from collections import deque
 def Decode ( c, grammar ):
     # c is io.BytesIO
     t = len( c );
-    P = struct.unpack('%sf'%(t/4), c)
-    if ( len(P) != PASSWORD_LENGTH ):
-        print "Encryptino is not of correct length"
-
+    P = struct.unpack('%sI'%(t/4), c)
+    #if ( len(P) != PASSWORD_LENGTH ):
+        # print "Encryptino is not of correct length"
+        
     plaintext = '';
     queue = deque(['S']);
     for p in P:
@@ -179,10 +183,10 @@ def main():
         grammar, trie = loadDicAndTrie( grammar_flname, trie_flname );   
     print "Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
     # testEncoding(grammar, trie); return;
-    p='rahulc12' # sys.stdin.readline().strip()
+    p='random@123' # sys.stdin.readline().strip()
     c = Encode(p, trie, grammar);
     print "Encoding:", c
-    c_struct = struct.pack('%sf' % len(c), *c )
+    c_struct = struct.pack('%sI' % len(c), *c )
     m = Decode(c_struct, grammar);
     print "After Decoding:", m
 
