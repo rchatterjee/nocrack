@@ -58,7 +58,7 @@ def whatchar( c ):
     else: return 'Y'
 
 inversemap=dict();
-def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0 ):
+def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0, isCDF=False ):
     if not w.strip(): return;
     # if ( w == "L1,S" ): print pRule, w, count, isNonT
     try:
@@ -75,7 +75,7 @@ def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0 ):
         except:
             grammar[pRule] = [[[w, count, isNonT]], 1]
             inversemap[w] = 0;
-        
+
 #mangler = Mangle(); # Not used still
 def findPattern( w, withMangling=False ):
     P,W,T = [],[],[]
@@ -100,21 +100,18 @@ def findPattern( w, withMangling=False ):
     return P,W,T;
 
 def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
+    if len(w) > 50: return
     P,W,T = findPattern ( w, isMangling )
-    if GRAMMAR_R: # grammar is of the form S -> L1S | L2S | D3S .. etc | EPSILON
-        for p in P:
-            insertInGrammar( grammar, 'S', str(p)+',S', count, NONTERMINAL ) # NonTerminal
-        insertInGrammar ( grammar, 'S', EPSILON );
-    else:
-        insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
+    insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
         
     for p,w in zip(P,W):
+        if len(w) > 30: return;
         insertInGrammar(grammar, str(p), w, count, 1-NONTERMINAL ); # Terminal
         
     # same like, iloveyou -> 0 | IloveU | ILoveYou etc..
     # 0 => iloveyou
-    #if w.islower(): insertInGrammar( grammar, w, 0 )
-    #else: insertInGrammar ( grammar, w.lower(), w )
+    # if w.islower(): insertInGrammar( grammar, w, 0 )
+    # else: insertInGrammar ( grammar, w.lower(), w )
     for t in T:
         insertInGrammar ( grammar, 'T', t )
     if isMangling : pushWordIntoGrammar ( w, True )
@@ -130,6 +127,10 @@ def convertToPDF(grammar):
         for nt in grammar[rule][0]:
             c, nt[1] = nt[1], nt[1]-c;
 
+def pruneGrammar(grammar, cnt=3):
+    for rule in grammar:
+        if grammar[rule][1] < cnt:
+            del grammar[rule];
 
 def convertToCDF(grammar):
     for rule in grammar:
@@ -211,7 +212,7 @@ def writePCFG( grammar, filename ):
         print "Num grammar keys:", len(grammar.keys())
         json.dump(grammar, f, indent=2, separators=(',',':'))
 
-def readPCFG( filename ):
+def readPCFG( filename, prune=False ):
     with bz2.BZ2File(filename, 'rb') as f:
         return json.load(f);
 
@@ -230,7 +231,7 @@ def main():
         return;
     password_dict = sys.argv[1];
     grammar = buildGrammar(password_dict)
-    convertToCDF(grammar);
+    # convertToCDF(grammar);
     if GRAMMAR_R:
         import pickle
         pickle.dump( grammar, open(grammar_flname, 'wb'))
