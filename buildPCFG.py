@@ -10,7 +10,7 @@ import resource
 EPSILON = '|_|'
 GRAMMAR_R=0
 NONTERMINAL = 1
-MEMLIMMIT = 1024 # 1024 MB, 1GB
+MEMLIMMIT = 2024 # 1024 MB, 1GB
 
 from os.path import (expanduser, basename)
 home = expanduser("~");
@@ -56,6 +56,7 @@ def whatchar( c ):
     if c.isalpha(): return 'L';
     if c.isdigit(): return 'D';
     else: return 'Y'
+
 
 inversemap=dict();
 def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0, isCDF=False ):
@@ -208,11 +209,18 @@ Lines processed, %d
     return grammar
 
 def writePCFG( grammar, filename ):
-    with bz2.BZ2File(filename, 'wb') as f:
-        print "Num grammar keys:", len(grammar.keys())
+    if sys.version_info[0]==2 and sys.version_info[1]<7:
+        f = bz2.BZ2File(filename, 'wb')
         json.dump(grammar, f, indent=2, separators=(',',':'))
+    else:
+        with bz2.BZ2File(filename, 'wb') as f:
+            print "Num grammar keys:", len(grammar.keys())
+            json.dump(grammar, f, indent=2, separators=(',',':'))
 
 def readPCFG( filename, prune=False ):
+    if sys.version_info[0]==2 and sys.version_info[1]<7:
+        f = bz2.BZ2File(filename, 'rb')
+        return json.load(f);
     with bz2.BZ2File(filename, 'rb') as f:
         return json.load(f);
 
