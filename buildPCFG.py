@@ -11,6 +11,7 @@ EPSILON = '|_|'
 GRAMMAR_R=0
 NONTERMINAL = 1
 MEMLIMMIT = 1024 # 1024 MB, 1GB
+MIN_COUNT = 1
 
 from os.path import (expanduser, basename)
 home = expanduser("~");
@@ -57,26 +58,56 @@ def whatchar( c ):
     if c.isdigit(): return 'D';
     else: return 'Y'
 
+def insertInGrammar_modify( grammar, pRule, w, count, isNonT=NONTERMINAL):
+    cnt = 0;
+    if pRule not in grammar: return;
+    s = grammar[pRule][0]
+    for j,i in enumerate(s):
+        if i[0] == w and i[2] == isNonT:
+            i[1] += count
+            if i[1]<=0: s.remove(i);
+            cnt = i[1]
+            # print grammar[pRule][0][j], cnt
+            grammar[pRule][1] += count;
+            if grammar[pRule][1] <= 0:
+                # print "Removing Rule:", pRule;
+                del grammar[pRule]
+            break;
+    # print "Removing:", pRule, w, count, cnt
+    return cnt;
+
 inversemap=dict();
+def ModifyGrammar( grammar, w, count ):
+    P, W, T = findPattern( w )
+    insertInGrammar_modify ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
+    
+    for p,w in zip(P,W):
+        if len(w) > 30: return;
+        insertInGrammar_modify(grammar, str(p), w, count, 1-NONTERMINAL ); # Terminal
+
 def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0, isCDF=False ):
     if not w.strip(): return;
-    # if ( w == "L1,S" ): print pRule, w, count, isNonT
+    if len(w)>30: return;
     try:
         s = grammar[pRule][0][inversemap[w]]
         assert s[0]==w and s[2] == isNonT;
         s[1] += count
-        grammar[pRule][1] += count; 
-        return;
+        grammar[pRule][1] += count;
+        #if __name__ != "__main__": 
+         #   print ">> Inserted:", pRule, w, count, s[1]-count
+        return s[1]-count;
     except:
         try:
             grammar[pRule][0].append( [w, count, isNonT] )
             inversemap[w] = len(grammar[pRule][0])-1
             grammar[pRule][1] += count;
         except:
-            grammar[pRule] = [[[w, count, isNonT]], 1]
+            grammar[pRule] = [[[w, count, isNonT]], count]
             inversemap[w] = 0;
+    #if __name__ != "__main__":
+        # print "Inserted:", pRule, w, count, 0
+    return 0;
 
-#mangler = Mangle(); # Not used still
 def findPattern( w, withMangling=False ):
     P,W,T = [],[],[]
     i,j = 0, 0
@@ -103,23 +134,15 @@ def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
     if len(w) > 50: return
     P,W,T = findPattern ( w, isMangling )
     insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
-        
+    
     for p,w in zip(P,W):
         if len(w) > 30: return;
         insertInGrammar(grammar, str(p), w, count, 1-NONTERMINAL ); # Terminal
         
-    # same like, iloveyou -> 0 | IloveU | ILoveYou etc..
-    # 0 => iloveyou
-    # if w.islower(): insertInGrammar( grammar, w, 0 )
-    # else: insertInGrammar ( grammar, w.lower(), w )
     for t in T:
         insertInGrammar ( grammar, 'T', t )
     if isMangling : pushWordIntoGrammar ( w, True )
 
-
-# P = [ [p[0], int(p[1]) ) for p in x.split(',')]
-# for p in P:
-#     print p;
 def convertToPDF(grammar):
     for rule in grammar:
         c = 0;
@@ -148,16 +171,16 @@ def push_DotStar_IntoGrammar( grammar ) :
     and L -> a|b|c|d..
     D -> 1|3|4 etc
     """
-    insertInGrammar( grammar, 'S', 'L1,S', 1, NONTERMINAL);
-    insertInGrammar( grammar, 'S', 'D1,S', 1, NONTERMINAL);
-    insertInGrammar( grammar, 'S', 'Y1,S', 1, NONTERMINAL);
+    insertInGrammar( grammar, 'S', 'L1,S', MIN_COUNT-1, NONTERMINAL);
+    insertInGrammar( grammar, 'S', 'D1,S', MIN_COUNT-1, NONTERMINAL);
+    insertInGrammar( grammar, 'S', 'Y1,S', MIN_COUNT-1, NONTERMINAL);
 
     for c in 'abcdefghijklmnopqrstuvwxyz':     
-        insertInGrammar( grammar, 'L1', c, 1, 1-NONTERMINAL )
+        insertInGrammar( grammar, 'L1', c, MIN_COUNT-1, 1-NONTERMINAL )
     for d in '0123456789' :                    
-        insertInGrammar( grammar, 'D1', d, 1, 1-NONTERMINAL )
+        insertInGrammar( grammar, 'D1', d, MIN_COUNT-1, 1-NONTERMINAL )
     for s in '!@#$%^&*()_-+=[{}]|\'";:<,.>?/': 
-        insertInGrammar( grammar, 'Y1', s, 1, 1-NONTERMINAL )
+        insertInGrammar( grammar, 'Y1', s, MIN_COUNT-1, 1-NONTERMINAL )
     # mangling_rule={'a':'@', 's':'$', 'o':'0', 'i':'!'}
     
                    
@@ -189,10 +212,12 @@ Lines processed, %d
         if len(line) > 1 and line[0].isdigit():
             w,c = ' '.join(line[1:]), int(line[0])
         else:
+            continue;
             w,c = ' '.join(line), 1
         try: w.decode('ascii')
         except: continue; # not ascii hence return
-
+        if ( n > 1.6 * 1e6 ): break;
+        if ( c < MIN_COUNT ): print "Word frequency dropped to %d for %s" % (c, w), n;  break; # Carefull!!!
         if w.islower() :
             pushWordIntoGrammar( grammar, w, c )
         else:
@@ -228,7 +253,7 @@ def main():
     grammar_flname, trie_flname = getfilenames( sys.argv[1] )
     if os.path.exists(grammar_flname) and os.path.exists(trie_flname):
         sys.stderr.write( "---->'%s' and '%s' already exists!\nIf you want to force, remove those files first.\nExisting!!\n" % (grammar_flname, trie_flname) )
-        return;
+        # return;
     password_dict = sys.argv[1];
     grammar = buildGrammar(password_dict)
     # convertToCDF(grammar);

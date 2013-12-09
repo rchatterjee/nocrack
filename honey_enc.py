@@ -3,7 +3,6 @@
 """
 This script implements HoneyEncription class for password vauld.
 it needs a PCFG in the following format.
-
 """
 
 import sys, os, math
@@ -15,7 +14,7 @@ from buildPCFG import EPSILON, GRAMMAR_R
 import random, marisa_trie
 import bz2 
 
-PASSWORD_LENGTH = 16
+PASSWORD_LENGTH = 30
 DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
 NONTERMINAL = 1
 # IDEA:  every genrule could be kept in a Trie.
@@ -46,7 +45,6 @@ def break_into_words( w, trie ):
     return Wlist;
 
 def loadDicAndTrie(dFile, tFile) :
-    #grammar = pickle.load(open(dFile, 'rb'))
     grammar = readPCFG( dFile );
     trie    = marisa_trie.Trie().load( tFile )
     if grammar['S'][0][-1][1] == grammar['S'][1]:
@@ -62,9 +60,9 @@ def getVal( arr, val ):
         if x[0] == val:
             if i==0: a = 0;
             else: a = c - x[1]
-            t = random.randint( a, a+x[1]-1 )
-            p = t + random.randint(0, 4294967295/arr[1]) * arr[1]
-            return p # + random.randint(0, 123456)*arr[1];
+            t = random.randint( a, c-1 )
+            p = t + random.randint(0, (4294967295-t)/arr[1]) * arr[1]
+            return p 
     return -1
 
 def getIndex( arr, s, e, x ):
@@ -73,9 +71,9 @@ def getIndex( arr, s, e, x ):
     if arr[e] < x: return e;
     if arr[(s+e)/2] > x: return getIndex( arr, s, (s+e)/2, x )
     else: return getIndex( arr, (s+e)/2+1, e, x);
+
+
 # TODO: every array in grammar rule should have start with a dummy entry('',0,0) and prob zero!!
-
-
 def getGenerationAtRule( rule, prob, grammar):
     # returns: ('IloveYou',0,420)
     d = [0]
@@ -84,11 +82,10 @@ def getGenerationAtRule( rule, prob, grammar):
         d[i] += d[i-1];
     prob = prob % grammar[rule][1]
     t = getIndex ( d, 0, len(d)-1, prob ) - 1;
-
     return grammar[rule][0][t]
 
 def Encode_spcl( m, trie, grammar ):
-    print "Special Encoding::::"
+    print "Special Encoding::::", m
     W = m # break_into_words(m, trie)
     P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
     E = [];
@@ -99,38 +96,29 @@ def Encode_spcl( m, trie, grammar ):
     E.append( getVal( grammar[P[-1]], W[-1]));
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(E);
-        E.extend( [ random.random() for x in range(extra) ] )
+        E.extend( [ random.randint(0, 4294967295) for x in range(extra) ] )
     return E;
 
 def Encode( m, trie, grammar ):
     W = break_into_words(m, trie)
     P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
     E = []
-    if GRAMMAR_R:
-        W.append( EPSILON )
-        for p in P:
-            t = getVal(grammar['S'], p+',S');
-            if t==-1: print "Not found", p; raise
-            # TODO: it should never occur.. but will check
-            else: E.append( t );
-    else: # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
-        t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
-        if t==-1: # use the default .* parsing rule..:P 
+    # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
+    t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
+    if t==-1: # use the default .* parsing rule..:P 
             #return ''; 
-            return Encode_spcl( m, trie, grammar );
-        else: E.append( t );
+        return Encode_spcl( m, trie, grammar );
+    else: E.append( t );
         
     # print P
     for p,w in zip(P,W):
         t=getVal(grammar[p], w)
         E.append( t )
-    if GRAMMAR_R:
-        E.append( getVal(grammar['S'], EPSILON ) )
-    
+
     # print "Actual:", E;
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(E);
-        E.extend( [ random.random() for x in range(extra) ] )
+        E.extend( [ random.randint(0, 4294967295) for x in range(extra) ] )
     return E
 
 # c is of the form set of numbers... 
@@ -154,8 +142,6 @@ def Decode ( c, grammar ):
         if g[2] == NONTERMINAL: 
             queue.extend(g[0].split(','))
             # TODO
-        #elif g[1] == 2: # mangling rule;
-        #    print " I don't know"
         else: # zero, terminal add 
             if GRAMMAR_R and g[0] == EPSILON: break
             plaintext += g[0]
@@ -170,7 +156,7 @@ def writePasswords ( p ):
         
 import resource
 def main():
-    grammar_flname, trie_flname = "data/grammar.hny.bz2", "data/trie.hny"
+    grammar_flname, trie_flname = "data/grammar_rockyou-withcount.hny.bz2",  "data/trie_rockyou-withcount.hny.bz2"
     if len (sys.argv) > 1 : 
             grammar_flname, trie_flname = getfilenames(sys.argv[1])
     else:
@@ -183,7 +169,7 @@ def main():
         grammar, trie = loadDicAndTrie( grammar_flname, trie_flname );   
     print "Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
     # testEncoding(grammar, trie); return;
-    p='random@123' # sys.stdin.readline().strip()
+    p='(NH4)2Cr2O7' # sys.stdin.readline().strip()
     c = Encode(p, trie, grammar);
     print "Encoding:", c
     c_struct = struct.pack('%sI' % len(c), *c )
