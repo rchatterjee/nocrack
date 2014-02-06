@@ -8,8 +8,7 @@ it needs a PCFG in the following format.
 import sys, os, math
 from io import BytesIO
 import struct
-from buildPCFG import whatchar, readPCFG, getfilenames, convertToPDF
-from buildPCFG import EPSILON, GRAMMAR_R
+from mingle import *
 #from loadDic import break_into_words
 import random, marisa_trie
 import bz2 
@@ -23,26 +22,26 @@ NONTERMINAL = 1
 
 # m is any passwrd
 
-def break_into_words( w, trie ):
-    n = len(w);
-    if n==1 : return [w];
-    if n==0 : return [];
-    Wlist = []
-    try: prefix = trie.prefixes( unicode(w) );
-    except: return []
-    # print prefix
-    prefix.reverse()
-    if not prefix: return [];
-    if prefix[0] == w: return [w];
-    for p in prefix:
-        if not p or len(p) == 0:
-            print p; return [];
-        W = break_into_words( w[len(p):], trie )
-        if W:
-            Wlist.append(p)
-            Wlist.extend(W);
-            break;
-    return Wlist;
+# def break_into_words( w, trie ):
+#     n = len(w);
+#     if n==1 : return [w];
+#     if n==0 : return [];
+#     Wlist = []
+#     try: prefix = trie.prefixes( unicode(w) );
+#     except: return []
+#     # print prefix
+#     prefix.reverse()
+#     if not prefix: return [];
+#     if prefix[0] == w: return [w];
+#     for p in prefix:
+#         if not p or len(p) == 0:
+#             print p; return [];
+#         W = break_into_words( w[len(p):], trie )
+#         if W:
+#             Wlist.append(p)
+#             Wlist.extend(W);
+#             break;
+#     return Wlist;
 
 def loadDicAndTrie(dFile, tFile) :
     grammar = readPCFG( dFile );
@@ -55,15 +54,22 @@ def loadDicAndTrie(dFile, tFile) :
 def getVal( arr, val ):
     # print val, '---\n', [str(s) for s in arr[0]];
     c=0
-    for i,x in enumerate(arr[0]):
-        c += x[1]
-        if x[0] == val:
+    found = False
+    totalC=0;
+    t=-1;
+    for i,x in enumerate(arr):
+        #print x
+        c += x[2]
+        totalC += x[2]
+        if not found and x[0] == val:
             if i==0: a = 0;
-            else: a = c - x[1]
+            else: a = c - x[2]
             t = random.randint( a, c-1 )
-            p = t + random.randint(0, (4294967295-t)/arr[1]) * arr[1]
-            return p 
-    return -1
+            found = True
+            print x, t
+    if t>-1:
+        return t + random.randint(0, (4294967295-t)/totalC) * totalC
+    return t
 
 def getIndex( arr, s, e, x ):
     # print arr[s:e+1], s, e, x
@@ -77,14 +83,14 @@ def getIndex( arr, s, e, x ):
 def getGenerationAtRule( rule, prob, grammar):
     # returns: ('IloveYou',0,420)
     d = [0]
-    d.extend([x[1] for x in grammar[rule][0]])
+    d.extend([x[2] for x in grammar[rule]])
     for i in xrange(1, len(d)):
         d[i] += d[i-1];
-    prob = prob % grammar[rule][1]
+    prob = prob % d[-1]
     t = getIndex ( d, 0, len(d)-1, prob ) - 1;
-    return grammar[rule][0][t]
+    return grammar[rule][t]
 
-def Encode_spcl( m, trie, grammar ):
+def Encode_spcl( m, grammar ):
     print "Special Encoding::::", m
     W = m # break_into_words(m, trie)
     P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
@@ -99,22 +105,27 @@ def Encode_spcl( m, trie, grammar ):
         E.extend( [ random.randint(0, 4294967295) for x in range(extra) ] )
     return E;
 
-def Encode( m, trie, grammar ):
-    W = break_into_words(m, trie)
-    P = ['%s%d' % (whatchar(w), len(w)) for w in W ]
-    E = []
+def Encode( m, tokenizer, grammar ):
+    P, W, U = tokenizer.tokenize(m, True)
+    E = []    
+    print P, W, U;
     # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
     t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
+    print 't:', t; 
     if t==-1: # use the default .* parsing rule..:P 
             #return ''; 
-        return Encode_spcl( m, trie, grammar );
+        return Encode_spcl( m, grammar );
     else: E.append( t );
-        
-    # print P
-    for p,w in zip(P,W):
-        t=getVal(grammar[p], w)
-        E.append( t )
 
+    for i,p in enumerate(P):
+        t=getVal(grammar[p], W[i])
+        E.append( t )
+        if t==-1: return Encode_spcl(m, grammar)
+        if W[i] != U[i]:
+            try:
+                E.append( getVal(grammar[W[i]], U[i]) )
+            except:
+                return Encode_spcl(m, grammar)
     # print "Actual:", E;
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(E);
@@ -139,41 +150,36 @@ def Decode ( c, grammar ):
         except: 
             # print "empty queue"
             break;
-        if g[2] == NONTERMINAL: 
+        if g[1] == NONTERMINAL: 
             queue.extend(g[0].split(','))
             # TODO
         else: # zero, terminal add 
-            if GRAMMAR_R and g[0] == EPSILON: break
             plaintext += g[0]
             #print "Decode:", g, '<%s>'%plaintext; # break;
     #print queue, p, '<=>', plaintext
     return plaintext
 
-def writePasswords ( p ):
-    # writes the encoded passwords.. 
-    f = open("password_vault.hny", 'w')
     
         
 import resource
 def main():
-    grammar_flname, trie_flname = "data/grammar_rockyou-withcount.hny.bz2",  "data/trie_rockyou-withcount.hny.bz2"
-    if len (sys.argv) > 1 : 
-            grammar_flname, trie_flname = getfilenames(sys.argv[1])
-    else:
-        print 'Command: %s <password_dict_name>' % sys.argv[0]
-        print 'Taking defaults,', grammar_flname, trie_flname
-        
-    if GRAMMAR_R:
-        grammar, trie = loadDicAndTrie( 'data/grammar_r.hny', 'data/trie.hny');
-    else:
-        grammar, trie = loadDicAndTrie( grammar_flname, trie_flname );   
+    base_dictionary, tweak_fl, passwd_dictionary, out_grmmar_fl, out_trie_fl = readConfigFile(sys.argv[1])
+    
+    _trie    = marisa_trie.Trie().load( out_trie_fl )
+    _tweaker = Tweaker(tweak_fl)
+    T = Tokenizer(tweaker=_tweaker, trie=_trie)
+    #print T.tokenize('P@$$w0rd', True)
+    #exit(0)
+    G = Grammar(tokenizer=T)
+    G.load(out_grmmar_fl)
     print "Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
     # testEncoding(grammar, trie); return;
     p='(NH4)2Cr2O7' # sys.stdin.readline().strip()
-    c = Encode(p, trie, grammar);
+    #p=u'love1302'
+    c = Encode(p, T, G.G);
     print "Encoding:", c
     c_struct = struct.pack('%sI' % len(c), *c )
-    m = Decode(c_struct, grammar);
+    m = Decode(c_struct, G.G);
     print "After Decoding:", m
 
 if __name__ == "__main__":

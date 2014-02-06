@@ -1,41 +1,10 @@
-#!/usr/bin/python
-
-import sys, os
-import bz2, re
-import marisa_trie, json
-
-# For checking memory usage
-import resource
-
-EPSILON = '|_|'
-GRAMMAR_R=0
-NONTERMINAL = 1
-MEMLIMMIT = 1024 # 1024 MB, 1GB
-MIN_COUNT = 1
-
-from os.path import (expanduser, basename)
-home = expanduser("~");
-
-def file_type(filename):
-    magic_dict = {
-        "\x1f\x8b\x08": "gz",
-        "\x42\x5a\x68": "bz2",
-        "\x50\x4b\x03\x04": "zip"
-        }
-    max_len = max(len(x) for x in magic_dict)
-    
-    with open(filename) as f:
-        file_start = f.read(max_len)
-    for magic, filetype in magic_dict.items():
-        if file_start.startswith(magic):
-            return filetype
-    return "no match"
+from mingle  import *
 
 #
-# ['S']  -> [('S2,S',1,20), ('L4,S',1,34),.... (EPSILON, 12332]
-# ['S2'] -> [('!!',0,12),('$%',0,23), .. 12312]
-# ['L1'] -> [('o',0,13),('a',0,67),....235]
-# ['D3'] -> [('132',0,32),('123',0,23)....3567]
+# ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]
+# ['S2'] -> [('!!',0,12),('$%',0,23), .. ]
+# ['L1'] -> [('o',0,13),('a',0,67),....]
+# ['D3'] -> [('132',0,32),('123',0,23)....]
 #
 #          ||
 #          ||
@@ -52,12 +21,52 @@ Letter: L, Capitalized: C
 Digit: D, Symbol: S
 ManglingRule: M
 """
-regex = r'([A-Za-z]+)|([0-9]+)|(\W+)'
-def whatchar( c ):
-    if c.isalpha(): return 'L';
-    if c.isdigit(): return 'D';
-    else: return 'Y'
+###################### --NEW VERSION-- ###################################
 
+def buildPCFG(config_fl):
+    base_dictionary, tweak_fl, passwd_dictionary, out_grmmar_fl, out_trie_fl = readConfigFile(config_fl)
+    if os.path.exists(out_trie_fl) and os.path.exists(out_grmmar_fl):
+        print "The grammar and trie already exist! Not recreating. remove to force."
+        return;
+    T = Tokenizer(base_dictionary, tweak_fl)
+    G = Grammar(tokenizer=T)
+    # resource track
+    resource_tracker = 5240;
+    for n, line in enumerate(open_(passwd_dictionary)):
+        if n>resource_tracker:
+            r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n;
+            if (r < 0 ):
+                print """
+Hitting the memory limmit of 1GB,
+please increase the limit or use smaller data set.
+Lines processed, %d
+""" % n
+                break;
+            resource_tracker += r/10+100;
+        # if n%1000==0: print n;
+        line = line.strip().split()
+        if len(line) > 1 and line[0].isdigit():
+            w,c = ' '.join(line[1:]), int(line[0])
+        else:
+            continue;
+            w,c = ' '.join(line), 1
+        try: w.decode('ascii')
+        except: continue; # not ascii hence return
+        if ( c < MIN_COUNT ): print "Word frequency dropped to %d for %s" % (c, w), n;  break; # Carefull!!!
+        G.insert(w, c )
+    # TODO
+    #push_DotStar_IntoGrammar( grammar );
+    G.save(bz2.BZ2File(out_grmmar_fl, 'w'))
+    marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
+    return G
+
+if __name__ == "__main__":
+    G = buildPCFG(sys.argv[1])
+#print T.unmangleWord(u'mike@1302')
+#print T.tokenize(u'Comput3rS3cret@1302', True)
+
+################## --OLD VERSION-- ###############################
 def insertInGrammar_modify( grammar, pRule, w, count, isNonT=NONTERMINAL):
     cnt = 0;
     if pRule not in grammar: return;
@@ -108,30 +117,9 @@ def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0, isCDF=False ):
         # print "Inserted:", pRule, w, count, 0
     return 0;
 
-def findPattern( w, withMangling=False ):
-    P,W,T = [],[],[]
-    i,j = 0, 0
-    W = [ sym for list_match in re.findall(regex, w) 
-          for sym in list_match if sym ]
-    
-    P = [ "%s%d" % ( whatchar(x[0]), len(x)) for x in W ]
-    # TODO - HOWWWWWW?????!!!! Confused
-    # Mstr = '';
-    # Cinfo = getCapitalizeInfo ( w );
-    # if withMangling: 
-    #     M,w = mangler.mangle(w);
-    #     if not M : return P
-    #     Mstr = 'M' + '-'.join([str(x) for x in M])
-
-    # if Cinfo>0 : 
-    #     CinfoStr = 'C%d' % Cinfo;
-    #     T.append( [CinfoStr) );
-    # if withMangling: T.append( [Mstr) )
-
-    return P,W,T;
-
 def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
     if len(w) > 50: return
+
     P,W,T = findPattern ( w, isMangling )
     insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
     
@@ -143,26 +131,26 @@ def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
         insertInGrammar ( grammar, 'T', t )
     if isMangling : pushWordIntoGrammar ( w, True )
 
-def convertToPDF(grammar):
-    for rule in grammar:
-        c = 0;
-        # print rule,
-        for nt in grammar[rule][0]:
-            c, nt[1] = nt[1], nt[1]-c;
+# def convertToPDF(grammar):
+#     for rule in grammar:
+#         c = 0;
+#         # print rule,
+#         for nt in grammar[rule][0]:
+#             c, nt[1] = nt[1], nt[1]-c;
 
 def pruneGrammar(grammar, cnt=3):
     for rule in grammar:
         if grammar[rule][1] < cnt:
             del grammar[rule];
 
-def convertToCDF(grammar):
-    for rule in grammar:
-        c = 0;
-        # print rule,
-        for nt in grammar[rule][0]:
-            nt[1] += c;
-            c = nt[1]
-        grammar[rule][1] = c
+# def convertToCDF(grammar):
+#     for rule in grammar:
+#         c = 0;
+#         # print rule,
+#         for nt in grammar[rule][0]:
+#             nt[1] += c;
+#             c = nt[1]
+#         grammar[rule][1] = c
 
 def push_DotStar_IntoGrammar( grammar ) :
     """
@@ -188,10 +176,8 @@ def buildGrammar(password_dict):
     grammar  = dict()
     grammar['S'] = ([],0) 
     # start node ( [(w1,n1),(w2,n2),(w3,n3)..], n )
-    if file_type(password_dict) == "bz2":
-        f=bz2.BZ2File(password_dict)
-    else:
-        f = open(password_dict);
+    f=open_(password_dict)
+
     reinsert_words = []
     # resource track
     resource_tracker = 10240;
@@ -216,7 +202,6 @@ Lines processed, %d
             w,c = ' '.join(line), 1
         try: w.decode('ascii')
         except: continue; # not ascii hence return
-        if ( n > 1.6 * 1e6 ): break;
         if ( c < MIN_COUNT ): print "Word frequency dropped to %d for %s" % (c, w), n;  break; # Carefull!!!
         if w.islower() :
             pushWordIntoGrammar( grammar, w, c )
@@ -235,7 +220,8 @@ Lines processed, %d
 def writePCFG( grammar, filename ):
     with bz2.BZ2File(filename, 'wb') as f:
         print "Num grammar keys:", len(grammar.keys())
-        json.dump(grammar, f, indent=2, separators=(',',':'))
+        # json.dump(grammar, f, indent=2, separators=(',',':'))
+        json.dump(grammar,f);
 
 def readPCFG( filename, prune=False ):
     with bz2.BZ2File(filename, 'rb') as f:
@@ -270,7 +256,8 @@ def main_modify() :
     with bz2.BZ2File('data/grammar_json.hny.bz2', 'wb') as f:
         f.write("#!/usr/bin/python\n\ngrammar=");
         json.dump(g, f, indent=2, separators=(',',':'))
+
     
-if __name__ == "__main__":
-    main();
+#if __name__ == "__main__":
+#    main();
     
