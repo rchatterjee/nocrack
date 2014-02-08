@@ -24,7 +24,7 @@ class Tweaker:
         try:
             return self.rules[s]
         except KeyError: return s;
-
+    
     def tweakW ( self, s ):
         return ''.join([self.tweak(c) for c in s])
 
@@ -108,6 +108,7 @@ class Grammar:
         if not tokenizer:
             self.tokenizer = Tokenizer(base_dictionary, tweak) 
         self.G={}
+        self.addDotStarRules();
 
     def addRule(self, lhs, rhs, isNonT, freq):
         G = self.G
@@ -116,32 +117,41 @@ class Grammar:
         except KeyError: # insert the lhs first
             G[lhs] = []
         try: # found in the inversemap => previous entry exist
-            pos = Grammar.inversemap[rhs]
-            if isNonT == 1 and G[lhs][pos][1]==0:
-                G[rhs] = [G[lhs][pos][:]] # deep copy?
-                G[lhs][pos][1] = True;
-            G[lhs][pos][2] += freq
+            if len(rhs)>1:
+                pos = Grammar.inversemap[rhs]
+            else:
+                pos = -1;
+                for i,x in enumerate(G[lhs]):
+                    if rhs == x[0]:
+                        pos = i;
+                        break
+            if pos==-1: G[lhs].append([rhs, isNonT, freq])
+            else: G[lhs][pos][2] += freq
 
         except KeyError: #first time in this place
             Grammar.inversemap[rhs] = len(G[lhs])
             G[lhs].append([rhs,isNonT,freq])
         except IndexError:
-            print lhs, '--->', rhs, freq
+            print 'IndexERROR:', lhs, '--->', rhs, freq
+            for k,v in G.items(): print k, '=>', v
             exit()
+
     def insert(self, w, freq):
-        P, W, U = self.tokenizer.tokenize(w)
+        P, W, U = self.tokenizer.tokenize(w, True)
         # print w, freq, P, W, U
         # S -> P
         self.addRule('S', ','.join(P), 1, freq)
         for i,p in enumerate(P):
             if len(W[i])>30: continue; # too big password
-            if W[i] != U[i]: 
-                self.addRule(p, W[i], 1, freq)
-                self.addRule(W[i], U[i], 0, freq)
+            # first add the nonterminal word
+            if W[i].isalpha():
+                self.addRule(p, W[i], 2, freq) # word NT- Complicated!
+                for w,u in zip(W[i],U[i]):
+                    self.addRule(w, u, 0, freq)
             else:
                 self.addRule(p, W[i], 0, freq)
     
-    def dotStarRules( grammar ):
+    def addDotStarRules(self):
         """
         This is to support parsing all possible passwords. 
         Artifical rules like, S -> L,S | D,S | Y,S
@@ -152,12 +162,19 @@ class Grammar:
         self.addRule('S', 'D1,S', 1, MIN_COUNT-1);
         self.addRule('S', 'Y1,S', 1, MIN_COUNT-1);
 
-        for c in 'abcdefghijklmnopqrstuvwxyz':     
+        for i in range(26):     
+            c = chr(ord('a')+i)
             self.addRule('L1', c, 0, MIN_COUNT-1 )
+            self.addRule(c, c.upper(), 0, MIN_COUNT-1 )
+            self.addRule('L1', c.upper(), 0, MIN_COUNT-1 )
+            
+            
         for d in '0123456789' :                    
             self.addRule('D1', d, 0, MIN_COUNT-1 )
         for s in '!@#$%^&*()_-+=[{}]|\'";:<,.>?/': 
             self.addRule('Y1', s, 0, MIN_COUNT-1 )
+        for e, s in self.tokenizer.M.rules.items():
+            self.addRule(s, e, 0, MIN_COUNT-1)
         # mangling_rule={'a':'@', 's':'$', 'o':'0', 'i':'!'}
 
     def save(self, out_file):

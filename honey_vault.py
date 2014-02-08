@@ -49,7 +49,7 @@ def testRandomDecoding( vault_cipher ):
     print "Trying to randomly decrypt:"
     #grammar, trie = loadDicAndTrie ( 'data/grammar_combined-withcout.hny.bz2',  'data/trie_combined-withcout.hny.bz2' )
     with bz2.BZ2File('../PasswordDictionary/passwords/500-worst-passwords.txt.bz2') as f:
-        count = 500;
+        count = 100;
         # for mp in ['rahul', 'abc123', 'password@123', 'thisismypassword', 'whatdFuck'] :
         #     # mp = line.strip().split()[1]
         #     ModifyGrammar(grammar, mp, FREQ);
@@ -63,29 +63,32 @@ def testRandomDecoding( vault_cipher ):
             mp = line.strip().split()[0]
             ModifyGrammar(grammar, mp, FREQ);
             # grammar, trie = loadAndModifyGrammar ( mp );
-            print mp, '-->', ', '.join( ['%s' % x for x in VaultDecrypt( vault_cipher, mp, grammar) ] )
+            print "\\textbf{%s} ~$\\rightarrow$ & \\texttt{\{%s\}} \\\\" % (mp, ', '.join( ['%s' % x for x in VaultDecrypt( vault_cipher, mp, grammar) ]))
             ModifyGrammar(grammar, mp, -FREQ)
 
 def main():
     global grammar, trie
     Vault = """
-google.com <> querty
-fb.com <> monkey@123
-uwcu.com <> sensible@123
+fb.com <> cookies
+bebo.com <> curlywurly
+youtube.com <> video1
+uwcu.com <> wwatson1974
+google.com <> qwerty
+yahoo.com <> polaroidw34
 """
     vault = [x.split('<>')[1].strip() for x in Vault.split('\n') if x]
     #vault = 'abc123 iloveyou password tree@123 (NH4)2Cr2O7' .split()
-    vault = [ x.strip() for x in bz2.BZ2File('../PasswordDictionary/passwords/500-worst-passwords.txt.bz2').readlines()[:25] ]
+    # vault = [ x.strip() for x in bz2.BZ2File('../PasswordDictionary/passwords/500-worst-passwords.txt.bz2').readlines()[:25] ]
 
     mp = "random"
     # print vault
     grammar, trie = loadAndModifyGrammar (mp)
-    #cipher1 = VaultEncrypt(vault, mp);
+    cipher = VaultEncrypt(vault, mp);
     # cipher2 = VaultEncrypt(vault, mp);
-    #print [len(c.encode('hex')) for c in cipher1]
+    print [len(c.encode('hex')) for c in cipher]
     # VaultDecrypt( cipher1, mp, grammar )
     #ModifyGrammar( grammar, mp, -FREQ);
-    # testRandomDecoding( cipher )
+    testRandomDecoding( cipher )
     
 if __name__ == "__main__":
     main();

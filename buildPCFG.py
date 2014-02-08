@@ -24,9 +24,9 @@ ManglingRule: M
 ###################### --NEW VERSION-- ###################################
 
 def buildPCFG(config_fl):
-    base_dictionary, tweak_fl, passwd_dictionary, out_grmmar_fl, out_trie_fl = readConfigFile(config_fl)
-    if os.path.exists(out_trie_fl) and os.path.exists(out_grmmar_fl):
-        print "The grammar and trie already exist! Not recreating. remove to force."
+    base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(config_fl)
+    if os.path.exists(out_trie_fl) and os.path.exists(out_grammar_fl):
+        print "The grammar(%s) and trie(%s) already exist! Not recreating. remove to force." % ( out_grammar_fl, out_trie_fl)
         return;
     T = Tokenizer(base_dictionary, tweak_fl)
     G = Grammar(tokenizer=T)
@@ -57,12 +57,13 @@ Lines processed, %d
         G.insert(w, c )
     # TODO
     #push_DotStar_IntoGrammar( grammar );
-    G.save(bz2.BZ2File(out_grmmar_fl, 'w'))
+    G.save(bz2.BZ2File(out_grammar_fl, 'w'))
     marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
     return G
 
 if __name__ == "__main__":
     G = buildPCFG(sys.argv[1])
+    print G
 #print T.unmangleWord(u'mike@1302')
 #print T.tokenize(u'Comput3rS3cret@1302', True)
 
@@ -258,6 +259,6 @@ def main_modify() :
         json.dump(g, f, indent=2, separators=(',',':'))
 
     
-#if __name__ == "__main__":
-#    main();
+# if __name__ == "__main__":
+#     main();
     

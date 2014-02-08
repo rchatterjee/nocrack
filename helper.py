@@ -11,7 +11,7 @@ EPSILON = '|_|'
 GRAMMAR_R=0
 NONTERMINAL = 1
 MEMLIMMIT = 1024 # 1024 MB, 1GB
-MIN_COUNT = 3
+MIN_COUNT = 300
 
 from os.path import (expanduser, basename)
 home = expanduser("~");

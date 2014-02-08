@@ -13,7 +13,7 @@ from mingle import *
 import random, marisa_trie
 import bz2 
 
-PASSWORD_LENGTH = 30
+PASSWORD_LENGTH = 50
 DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
 NONTERMINAL = 1
 # IDEA:  every genrule could be kept in a Trie.
@@ -105,6 +105,7 @@ def Encode_spcl( m, grammar ):
         E.extend( [ random.randint(0, 4294967295) for x in range(extra) ] )
     return E;
 
+
 def Encode( m, tokenizer, grammar ):
     P, W, U = tokenizer.tokenize(m, True)
     E = []    
@@ -113,19 +114,26 @@ def Encode( m, tokenizer, grammar ):
     t = getVal( grammar['S'], ','.join([ str(x) for x in P]) )
     print 't:', t; 
     if t==-1: # use the default .* parsing rule..:P 
-            #return ''; 
         return Encode_spcl( m, grammar );
     else: E.append( t );
 
     for i,p in enumerate(P):
         t=getVal(grammar[p], W[i])
+        if t==-1: 
+            print "here1", p, W[i]
+            return Encode_spcl(m, grammar)
         E.append( t )
-        if t==-1: return Encode_spcl(m, grammar)
-        if W[i] != U[i]:
-            try:
-                E.append( getVal(grammar[W[i]], U[i]) )
-            except:
-                return Encode_spcl(m, grammar)
+        if W[i].isalpha():
+            for w,u in zip(W[i], U[i]):
+                try:
+                    t = getVal(grammar[w], u) 
+                    if t!=-1: E.append( t )
+                    else: 
+                        print 'here2', w, u
+                        return Encode_spcl(m, grammar)
+                except KeyError:
+                    print 'here3', w, u
+                    return Encode_spcl(m, grammar)
     # print "Actual:", E;
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(E);
@@ -143,20 +151,26 @@ def Decode ( c, grammar ):
         # print "Encryptino is not of correct length"
         
     plaintext = '';
-    queue = deque(['S']);
+    #queue = deque(['S']);
+    stack = ['S']
     for p in P:
+        #print stack, p
         try:
-            g = getGenerationAtRule( queue.popleft(), p, grammar )
+            g = getGenerationAtRule( stack.pop(), p, grammar )
         except: 
-            # print "empty queue"
+            #print plaintext, g
+            #print "empty queue"
             break;
         if g[1] == NONTERMINAL: 
-            queue.extend(g[0].split(','))
-            # TODO
+            arr = g[0].split(',')
+            arr.reverse()
+            stack.extend(arr)
+        elif g[1] == NONTERMINAL+1:
+            arr = list(g[0])
+            arr.reverse()
+            stack.extend(arr)
         else: # zero, terminal add 
             plaintext += g[0]
-            #print "Decode:", g, '<%s>'%plaintext; # break;
-    #print queue, p, '<=>', plaintext
     return plaintext
 
     
@@ -173,14 +187,22 @@ def main():
     G = Grammar(tokenizer=T)
     G.load(out_grmmar_fl)
     print "Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-    # testEncoding(grammar, trie); return;
-    p='(NH4)2Cr2O7' # sys.stdin.readline().strip()
-    #p=u'love1302'
+    #p='(NH4)2Cr2O7' # sys.stdin.readline().strip()
+    p=u'iloveyou69'
     c = Encode(p, T, G.G);
     print "Encoding:", c
     c_struct = struct.pack('%sI' % len(c), *c )
     m = Decode(c_struct, G.G);
     print "After Decoding:", m
+    #     if PASSWORD_LENGTH>0:
+    for s in range(10000):
+        E = []
+        E.extend( [ random.randint(0, 4294967295) for x in range(PASSWORD_LENGTH) ] )
+        c_struct = struct.pack('%sI' % len(E), *E )
+        m = Decode(c_struct, G.G);
+        print s, ":", m
+
+
 
 if __name__ == "__main__":
     main();
