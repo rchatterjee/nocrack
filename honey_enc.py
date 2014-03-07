@@ -50,7 +50,6 @@ def loadDicAndTrie(dFile, tFile) :
         convertToPDF(grammar)
     return grammar, trie
 
-
 def getVal( arr, val ):
     # print val, '---\n', [str(s) for s in arr[0]];
     c=0
@@ -120,7 +119,6 @@ def Encode( m, tokenizer, grammar ):
     for i,p in enumerate(P):
         t=getVal(grammar[p], W[i])
         if t==-1: 
-            print "here1", p, W[i]
             return Encode_spcl(m, grammar)
         E.append( t )
         if W[i].isalpha():

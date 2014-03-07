@@ -12,5 +12,6 @@
 ../PasswordDictionary/passwords/combined-withcout.txt.bz2
 tweak.txt
 ../PasswordDictionary/passwords/rockyou-withcount.txt.bz2
+#../PasswordDictionary/passwords/facebook-firstnames-withcount.txt
 ./data/combined.gmr.bz2
 ./data/combined.tri.bz2

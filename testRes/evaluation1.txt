@@ -68,3 +68,30 @@
 13    0/500     9/1343     3/3003   17/3003   54/1823    7/3003    0/3003   19/3003   87/3003    0/3003   27/3003   27/3003
 15    6/500   498/1339   228/3003  670/3003  720/1835  168/3003  308/3003  981/3003 1262/3003  275/3003  607/3003    1/3003
 
+============================================================================================
+============================================================================================================================
+
+\item 500-worst-passwords.txt.bz2 : 500
+\item alypaa-withcount.txt.bz2 1384
+\item elitehacker-withcount.txt.bz2 895
+\item rockyou-withcount.txt.bz2 14344391
+\item porn-unknown-withcount.txt.bz2 8089
+\item hotmail-withcount.txt.bz2 8931
+\item carders.cc-withcount.txt.bz2 1904
+\item facebook-phished-withcount.txt.bz2 2441
+\item phpbb-withcount.txt.bz2 184389
+\item yahoo-withcount.txt.bz2 342517
+\item singles.org-withcount.txt.bz2 12234
+\item faithwriters-withcount.txt.bz2 8347
+\item combined-withcout.txt.bz2 5142440
+\item tuscl-withcount.txt.bz2 38820
+\item honeynet-withcount.txt.bz2 226928
+\item hak5-withcount.txt.bz2 2351
+
+--------------------
+     &DICT 1&    DICT 2&     DICT 4&    DICT 5&    DICT 9&    DICT10&    DICT13&    DICT14&    DICT15\\ 
+ 4&    0.00%&     0.60%&      0.07%&     0.43%&     0.17%&     0.50%&     0.27%&     0.40%&     1.50%\\
+ 9&    0.40%&    21.27%&      2.93%&    12.49%&     0.00%&     5.00%&     3.76%&    10.82%&     7.59%\\
+10&    0.60%&    22.10%&      1.36%&    10.92%&     1.60%&     0.03%&     0.03%&     7.49%&     5.29%\\
+13&    0.00%&     0.67%&      0.10%&     0.57%&     0.23%&     0.00%&     0.00%&     0.90%&     0.90%\\
+15&    1.20%&    37.19%&      7.59%&    22.31%&     5.59%&    10.28%&     9.16%&    20.21%&     0.03%\\

@@ -11,7 +11,7 @@ EPSILON = '|_|'
 GRAMMAR_R=0
 NONTERMINAL = 1
 MEMLIMMIT = 1024 # 1024 MB, 1GB
-MIN_COUNT = 300
+MIN_COUNT = 30
 
 from os.path import (expanduser, basename)
 home = expanduser("~");
@@ -32,9 +32,13 @@ def file_type(filename):
     return "no match"
 
 # opens file checking whether it is bz2 compressed or not.
+import tarfile
 def open_(filename, mode='r'):
-    if file_type(filename) == "bz2":
+    type_ = file_type(filename)
+    if type_ == "bz2":
         f=bz2.BZ2File(filename, mode)
+    elif type_ == "gz":
+        f = tarfile.open(filename, mode)
     else:
         f = open(filename, mode);
     return f;
