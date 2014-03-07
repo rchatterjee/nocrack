@@ -92,15 +92,42 @@ class Trie:
             s += getsizeof(T[k]) + sys.getsizeof(k)
         return s;
 
+import json
+import Levenshtein as editdist
+
+def istweak(a, b):
+    e = editdist.distance(a,b)
+    s = float(e)/ max(len(a), len(b))
+#    print (a, b, e, s)
+    return s<0.8
+
+        
 if __file__ == sys.argv[0]:
-    T = Trie()
-    with open("cain.txt.bz2") as f:
-        #for w in "a am iam anya anything anyt anarchy".split():
-        for l in f.readlines():
-            T.insert(l.strip()) 
+    # T = Trie()
+    # with open("cain.txt.bz2") as f:
+    #     #for w in "a am iam anya anything anyt anarchy".split():
+    #     for l in f.readlines():
+    #         T.insert(l.strip()) 
 
-    #print (T);
-    print (T.__sizeof__(), T.max_prefix_match('anyass'))
+    # #print (T);
+    # print (T.__sizeof__(), T.max_prefix_match('anyass'))
 
-
-
+    f = json.load(open('./weir_pass.json'))
+    a=[]
+    for v, plist in f.items():
+        x = len(plist)
+        if x <3: continue
+        print( x); continue
+        uniq_ps = sorted(set(plist))
+        if len(uniq_ps)>1:
+            dist = [ sum([istweak(u,v) for u in uniq_ps])/float(len(uniq_ps)) for v in uniq_ps]
+        print(uniq_ps, dist)
+        a.append((x, len(uniq_ps), min(dist.count(1.0)+1, len(uniq_ps))))
+        
+    
+    a = sorted(a, key = lambda x: x[1])
+#    print (a)
+    b = sorted([ float(x[1])/x[0] for x in a] )
+#    print (b)
+    avg = sum(b)/ len(b)
+    print (avg)
