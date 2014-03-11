@@ -1,3 +1,4 @@
+#!/usr/bin/python
 
 import marisa_trie, json, bz2
 from helper import *
@@ -11,12 +12,12 @@ class KeyBoard:
     layout_matrix = [
         "1234567890-=",
         "!@#$%^&*()_+",
-        "qwertyuiop[]",
-        "QWERTYUIOP{}",
+        "qwertyuiop[]|",
+        "QWERTYUIOP{}\\",
         "asdfghjkl;'",
-        'ASDFGHJKL:"|',
+        'ASDFGHJKL:"',
         "zxcvbnm,./",
-        "ZXCVBNM ?"
+        "ZXCVBNM<>?"
         ]        
     def __init__(self, keyboard_layout_fl=None):
         self.layout_map = {}
@@ -151,6 +152,9 @@ DIC_TRIE_FILE = 'Dictionary_Store/dictionary.tri'
 STANDARD_DIC_FILE = "Dictionary_Store/standard_english.tri"
 
 class Tokenizer:
+    d_w_d = re.compile(r'(?P<pre>[^a-zA-Z]*)(?P<word>[a-zA-Z]*)(?P<post>[^a-zA-Z]*)')
+    non_alphabet = re.compile(r'^[^a-zA-Z]+$')
+
     def __init__( self, dictionary_fl=None, mangle_fl=None, 
                   trie=None, tweaker=None):
         Words = []
@@ -168,27 +172,27 @@ class Tokenizer:
             self.standard_english = marisa_trie.Trie().load(STANDARD_DIC_FILE)
 
         if not self.T:
-            for line_no, line in enumerate(open_(dictionary_fl)):
-                if not line or line[0] == '#' : continue
-                w = line.strip().split()[-1]
-                if w.isalpha(): 
-                    try: w.decode('ascii')
-                    except: continue; # not ascii hence return
-                    Words.append(w.lower())
-                    if line_no>1000000: break;
-            self.T = marisa_trie.Trie(Words)
-            self.T.save('data/dictionary.tri')
-        
+            print "Oh My God!! You dont have the dictionary({DIC_TRIE_FILE}). I can't take it. Exiting!".format(**locals())
+            exit(0);
+
+
     # scores how good is the chunking
-    def score(self, w, wlist):
-        s = sum( (unicode(x) in self.standard_english) for x in wlist)
-        return (1+float(s))/(len(wlist)*len(wlist))
+    def score(self, orig, wlist):
+        dic_words = filter(lambda x: unicode(x) in self.standard_english, wlist )
+        num_words = filter(lambda x : re.match(self.non_alphabet, x) is not None, wlist)
+        # t_d = float(sum([len(x) for x in dic_words]))/(0.1+len(dic_words))+1
+        # t_all = len(orig)/len(wlist)
+        # t_last = (0 if re.match(self.non_alphabet, wlist[-1]) is None else 1)
+        # t_last+= (0 if re.match(self.non_alphabet, wlist[0] ) is None else 1)
+        non_dic_words = 2*len(wlist)-len(num_words)-len(dic_words)
+        scr = - non_dic_words #float(t_d)+t_all + t_last + (len(wlist) - len(dic_words) - len(num_words))
+        #print 'Score:', wlist, scr
+        return scr
 
     # It converts the password into unmnagled version and 
     # break it into 'best' possible chunks
-    def unmangleWord(self, w):
-        if w.isdigit():
-            return [w]
+    def unmangleWord(self, w, pre=''):
+        if re.match(self.non_alphabet, w): return [w]
         if len(w)>6 and len(set(w))<=2: return None
         if len(w)==1:
             return None if w.isalpha() and w not in ['i', 'a'] else [w]
@@ -203,22 +207,25 @@ class Tokenizer:
             # print "Couldnot find!", w, '-->', P
             return None
         P.sort(key = lambda x: len(x)*(1+(x in self.standard_english)), reverse=True)
+        #print pre+w+str(P)
         nWlist=[]
-        oWlist=[[], 0]
+        oWlist=[[], -99]
         test = 0;
         for p in P:
-            if len(p) == len(w): return [p];
-            npw = self.unmangleWord(w[len(p):])
+            npw = '<3>';
+            if len(p) < len(w): 
+                npw = self.unmangleWord(w[len(p):], pre+'++')
             if npw:
                 nWlist.append(p)
-                nWlist.extend(npw)
+                if npw != '<3>': nWlist.extend(npw)
                 s = self.score(w, nWlist) + 1.0/(test+5)
-                # print oWlist, [nWlist, s]
                 if s>oWlist[1]:
                     oWlist = [nWlist, s]
+                    #print pre+"Changing: "+str(oWlist)
                 nWlist = []
-                if test>2: break
+                if test>2 or len(p) == len(w): break
                 test+=1
+        #if oWlist[0]: print pre+"returning==>", oWlist, [nWlist, s]
         return oWlist[0];
 
         
@@ -243,6 +250,7 @@ class Tokenizer:
             print 'Mobmatch:', w1,dt,mob,w2
         save_w=w
         T = [w]
+        #m = re.match(self.d_w_d, w)        
         if isMangling:
             T = self.unmangleWord(w) # unmangled breakup
             if not T: T = [w]
