@@ -90,7 +90,7 @@ class KeyBoard:
         return weight, seq_list
 
 
-class DateOrMobile:
+class Date:
     """
     Dt --> MDY, DMY, Y, MD, YMD, M/D/Y, D/M/Y
     Y --> yy | yyyy
@@ -102,26 +102,38 @@ class DateOrMobile:
     yy --> [4-9][0-9] | [0-2][0-9]
     yyyy --> 19[4-9][0-9] | 2[01][0-9][0-9]
     """
-    Y = '(19[4-9][0-9]|20[0-3][0-9]|[4-9][0-9]|[0-3][0-9])'
+    yy = '([4-9][0-9]|[0-3][0-9])'
+    yyyy = '(19[4-9][0-9]|20[0-3][0-9])'
     mm   = '(0[0-9]|1[012])'
-    mon  = '(jan | feb)'
+    mon  = '(jan | feb)' # TODO: Not sure how to handle this
     dd   = '([0-2][0-9]|3[01])'
         
     def __init__(self):
-        self.date = r"""(?P<prefix>\D*)(
-(?P<date>(?P<mmddY>{mm}{dd}{Y})|
-(?P<ddmmY>{dd}{mm}{Y})|
-(?P<Y>{Y})|
-(?P<mmdd>{mm}{dd})|
-(?P<Ymmdd>{Y}{mm}{dd}))
-""".format(**self.__class__.__dict__)
-        self.date += "(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*)"
-
+        self.date = r"""^(?P<W_s>\D*)(?P<date>
+(?P<mdy>{mm}{dd}{yy})|
+(?P<mdY>{mm}{dd}{yyyy})|
+(?P<dmy>{dd}{mm}{yy})|
+(?P<dmY>{dd}{mm}{yyyy})|
+(?P<y>{yy})|
+(?P<Y>{yyyy})|
+(?P<YY>{yyyy}{yyyy})|
+(?P<md>{mm}{dd})|
+(?P<ymd>{yy}{mm}{dd})
+(?P<Ymd>{yyyy}{mm}{dd})
+)
+(?P<W_e>\D*)$""".format(**self.__class__.__dict__)
+        #self.date += "|(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*$)"
         self.Dt = re.compile(self.date, re.VERBOSE)
 
-    def IsDateOrMobile(self, s):
-        m = self.Dt.match(s)
-        res = [m.group(x) for x in ['prefix', 'postfix', 'date', 'mobno']] if m else None
+    def encodeDate(self):
+        return ''
+
+    def IsDate(self, s):
+        m = re.match(self.Dt, s)
+        if not m: return None;
+        m_dict = dict((k,v) for k,v in m.groupdict().iteritems() if v and k!='date')
+        
+        return ['T', m_dict.keys(), m_dict.values()]
 
 
 class Tweaker:
@@ -163,7 +175,7 @@ class Tokenizer:
             self.M = Tweaker(mangle_fl)
         self.T = trie
         self.keyboard = KeyBoard()
-        self.dateormobile = DateOrMobile()
+        self.date = Date()
         self.standard_english = None;
 
         if os.path.exists(DIC_TRIE_FILE):
@@ -239,15 +251,18 @@ class Tokenizer:
     def tokenize(self, w, isMangling=False):
         wt, s = self.keyboard.IsKeyboardSeq(w)
         if s: return ['K%d'%len(s)], s, [w]
-        grp = self.dateormobile.IsDateOrMobile(w)
+        grp = self.date.IsDate(w)
         if grp:
-            w1,w2=grp[0], grp[1]
-            dt, mob=grp[2], grp[3]
-            if dt: 'T'
-            R1, R2=[[],[],[]], [[],[],[]]
-            if w1: R1 = tokenize(w1, isMangling)
-            if w2: R2 = tokenize(w2, isMangling)
-            print 'Mobmatch:', w1,dt,mob,w2
+            print grp
+            # w1,w2=grp[0], grp[1]
+            # dt, mob=grp[2], grp[3]
+            # if dt: 'T'
+            # R1, R2=[[],[],[]], [[],[],[]]
+            # if w1: R1 = tokenize(w1, isMangling)
+            # if w2: R2 = tokenize(w2, isMangling)
+            # print 'Mobmatch:', w1, dt, mob, w2
+        else:
+            print "not Date"
         save_w=w
         T = [w]
         #m = re.match(self.d_w_d, w)        

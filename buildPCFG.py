@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from mangle  import *
 import csv
 #
@@ -122,7 +124,7 @@ if __name__ == "__main__":
     #print G
     base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(sys.argv[1])
     T = Tokenizer(base_dictionary, tweak_fl)
-    for w in ['cutiepie1', 'babygirl', 'corazon', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032'][6:]:
+    for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2'][:4]:
         print T.tokenize(w, True)
     #D = MobileN();
     #print D.parse('ram1992');
