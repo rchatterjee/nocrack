@@ -58,3 +58,12 @@ def whatchar( c ):
     if c.isalpha(): return 'L';
     if c.isdigit(): return 'D';
     else: return 'Y'
+
+from math import sqrt
+def mean_sd( arr ):
+    s  = sum(arr)
+    s2 = sum([x*x for x in arr])
+    n  = len(arr)
+    m  = s/float(n)
+    sd = sqrt(float(s2)/n - m*m)
+    return m, sd

@@ -3,6 +3,8 @@
 import marisa_trie, json, bz2
 from helper import *
 import struct
+# from counter import Counter
+
 ArrSize = 8460018
 # T = marisa_trie.Trie().load('data/trie_rockyou-withcount.hny.bz2')
 #keys: 1102401
@@ -18,7 +20,7 @@ class KeyBoard:
         'ASDFGHJKL:"',
         "zxcvbnm,./",
         "ZXCVBNM<>?"
-        ]        
+        ]       
     def __init__(self, keyboard_layout_fl=None):
         self.layout_map = {}
         for i, row in enumerate(self.layout_matrix):
@@ -262,7 +264,8 @@ class Tokenizer:
             # if w2: R2 = tokenize(w2, isMangling)
             # print 'Mobmatch:', w1, dt, mob, w2
         else:
-            print "not Date"
+            pass
+            #print "not Date"
         save_w=w
         T = [w]
         #m = re.match(self.d_w_d, w)        
