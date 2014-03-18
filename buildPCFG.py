@@ -107,9 +107,13 @@ Lines processed, %d
             w,c = ' '.join(line), 1
         try: w.decode('ascii')
         except: continue; # not ascii hence return
-        if c<MIN_COUNT/10: break
+        if c<MIN_COUNT/100: break
         # P is the patterns, W is the unmangled words, U is the original
-        P, W, U = T.tokenize(w, True)
+        wt, s = T.keyboard.IsKeyboardSeq(w)
+        if s: 
+            for l in s:
+                print l
+        continue 
         # print t
         if P: csv_writer.writerow([c, w, str(W)])
         else: print 'Failed to Parse:', w
@@ -122,10 +126,10 @@ Lines processed, %d
 if __name__ == "__main__":
     #G = buildPCFG(sys.argv[1])
     #print G
-    base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(sys.argv[1])
-    T = Tokenizer(base_dictionary, tweak_fl)
-    for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2'][:4]:
-        print T.tokenize(w, True)
+#    base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(sys.argv[1])
+#    T = Tokenizer(base_dictionary, tweak_fl)
+#    for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2'][:4]:
+#        print T.tokenize(w, True)
     #D = MobileN();
     #print D.parse('ram1992');
     # K = KeyBoard();
@@ -138,7 +142,7 @@ if __name__ == "__main__":
     #         p = K.generate_passqord_fromseq(s)
     #         if p != l[0]:
     #             print "ERROR:",  l[0], w, [], p
-    #breakWordsIntoTokens( sys.argv[1] )
+    breakWordsIntoTokens( sys.argv[1] )
     
 
 
