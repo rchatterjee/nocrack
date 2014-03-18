@@ -15,6 +15,16 @@ MIN_COUNT = 30
 
 from os.path import (expanduser, basename)
 home = expanduser("~");
+pwd  = os.path.dirname(os.path.abspath(__file__))
+
+class Token:
+    def __init__ (self, v_=None, n_=None, o_=None):
+        self.value = v_
+        self.name  = n_
+        self.orig  = o_
+
+    def __str__(self):
+        return "%s,%s,%s"%(self.value, self.name, self.orig)
 
 # returns the type of file.
 def file_type(filename):
