@@ -5,3 +5,5 @@
 *.gz
 data/
 honey_venv/
+rockYouPasswords/
+test/
