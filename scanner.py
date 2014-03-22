@@ -1,171 +1,13 @@
 #!/usr/bin/python
 
-import marisa_trie, json, bz2
+from dawg import IntDAWG
+from dawg import DAWG
+ 
+import struct, json, bz2
 from helper import *
-import struct
-# from counter import Counter
-
-ArrSize = 8460018
-# T = marisa_trie.Trie().load('data/trie_rockyou-withcount.hny.bz2')
-#keys: 1102401
-#nodes: 1294287
-class KeyBoard:
-    offset = 50; # to handle negetive!!!!
-    layout_matrix = [
-        "1234567890-=",
-        "!@#$%^&*()_+",
-        "qwertyuiop[]|",
-        "QWERTYUIOP{}\\",
-        "asdfghjkl;'",
-        'ASDFGHJKL:"',
-        "zxcvbnm,./",
-        "ZXCVBNM<>?"
-        ]       
-    def __init__(self, keyboard_layout_fl=None):
-        self.layout_map = {}
-        for i, row in enumerate(self.layout_matrix):
-            for j,c in enumerate(row):
-                self.layout_map[c] = (i/2,j)
-
-    def isShift(self, c):
-        p=self.layout_map[c];
-        return int(self.layout_matrix[2*p[0]][p[1]] != c)
-
-    def dist(self,p1, p2):
-        dy = p2[0]-p1[0] + self.offset
-        dx = p2[1]-p1[1] + self.offset
-        return (dy,dx)
-
-    def encode_keyseq( self, seq ):
-        if not seq[1]: seq[1] = (0,0)
-        a = (seq[1][0]<<24)|(seq[1][1]<<16)|(seq[2]<<8)|seq[3]
-        return a
-
-    def decode_keyseq( self, a ):
-        return [((0xff000000&a)>>24, (0xff0000&a)>>16), (0xff00&a)>>8, 0xff&a]
-
-    def generate_passqord_fromseq( self, seq ):
-        p = ''
-        for s in seq:
-            p += s[0]
-            pos = list(self.layout_map[s[0]])
-            n = self.decode_keyseq(s[1])
-            for i in range(n[2]):
-                pos[0] += (n[0][0] - self.offset )
-                pos[1] += (n[0][1] - self.offset )
-                p += self.layout_matrix[pos[0]*2 + n[1]][pos[1]]
-        return p
-
-    def IsKeyboardSeq(self, w):
-        if len(w)<5 : return 99.0, []
-        M = self.layout_map
-        score = 0;
-        try:
-            pos = [M[c] for c in w]
-        except KeyError:
-            return 99.0, []
-        dist_pos = [self.dist(pos[i-1], pos[i]) for i in range(1,len(w))]
-        n_transition = len(set(dist_pos))
-        n_char = len(set(w))
-        # [start_char, [direction, shift, number]+]+
-        # direction, 
-        #     0 - same, 
-        #     1,2..8 - U, UR, R, RD, D, DL, L, UL
-        
-        weight = float(n_transition)/len(dist_pos)+float(len(w))/n_char
-        seq_list = []
-        if weight<1.5:
-            seq = [w[0], [], self.isShift(w[0]), 0]
-            for i in range(1,len(w)):
-                is_shift_ = self.isShift(w[i])
-                if not seq[1] and is_shift_==seq[2]:
-                    seq[1] = dist_pos[i-1]
-                    seq[3] += 1
-                elif seq[1] != dist_pos[i-1] or seq[2] != is_shift_:
-                    seq_list.append(seq)
-                    seq = [w[i], [], is_shift_, 0]
-                else:
-                    seq[3]+=1
-            if seq: seq_list.append(seq)
-            for i,seq in enumerate(seq_list): 
-                seq_list[i] = [seq[0], self.encode_keyseq( seq )];
-        return weight, seq_list
 
 
-class Date:
-    """
-    Dt --> MDY, DMY, Y, MD, YMD, M/D/Y, D/M/Y
-    Y --> yy | yyyy
-    M --> mm | mon
-    D --> dd
-    mm --> 01 - 12
-    dd --> 01 - 31
-    mon --> Jan - dec
-    yy --> [4-9][0-9] | [0-2][0-9]
-    yyyy --> 19[4-9][0-9] | 2[01][0-9][0-9]
-    """
-    yy = '([4-9][0-9]|[0-3][0-9])'
-    yyyy = '(19[4-9][0-9]|20[0-3][0-9])'
-    mm   = '(0[0-9]|1[012])'
-    mon  = '(jan | feb)' # TODO: Not sure how to handle this
-    dd   = '([0-2][0-9]|3[01])'
-        
-    def __init__(self):
-        self.date = r"""^(?P<W_s>\D*)(?P<date>
-(?P<mdy>{mm}{dd}{yy})|
-(?P<mdY>{mm}{dd}{yyyy})|
-(?P<dmy>{dd}{mm}{yy})|
-(?P<dmY>{dd}{mm}{yyyy})|
-(?P<y>{yy})|
-(?P<Y>{yyyy})|
-(?P<YY>{yyyy}{yyyy})|
-(?P<md>{mm}{dd})|
-(?P<ymd>{yy}{mm}{dd})
-(?P<Ymd>{yyyy}{mm}{dd})
-)
-(?P<W_e>\D*)$""".format(**self.__class__.__dict__)
-        #self.date += "|(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*$)"
-        self.Dt = re.compile(self.date, re.VERBOSE)
-
-    def encodeDate(self):
-        return ''
-
-    def IsDate(self, s):
-        m = re.match(self.Dt, s)
-        if not m: return None;
-        m_dict = dict((k,v) for k,v in m.groupdict().iteritems() if v and k!='date')
-        
-        return ['T', m_dict.keys(), m_dict.values()]
-
-
-class Tweaker:
-    def getTweakerRules(self, mangle_fl ):
-        try: 
-            rules = {}
-            for l in open(mangle_fl):
-                l = l.strip().split(':')
-                rules[l[0]] = l[1]
-        except IOError:
-            print mangle_fl, '-- could not be opend! Tweaker set is empty.'
-        return rules;
-
-    def __init__(self, mangle_fl=None):
-        self.rules={}
-        if mangle_fl:
-            self.rules = self.getTweakerRules(mangle_fl)
-        
-    def tweak ( self, s ):
-        if len(s)==1: 
-            try: return self.rules[s]
-            except KeyError: return s;
-        else:
-            return ''.join([self.tweak(c) for c in s])
-
-#DIC_TRIE_FILE = 'data/english.tri'
-DIC_TRIE_FILE = 'Dictionary_Store/dictionary.tri'
-STANDARD_DIC_FILE = "Dictionary_Store/standard_english.tri"
-
-class Tokenizer:
+class Scanner:
     d_w_d = re.compile(r'(?P<pre>[^a-zA-Z]*)(?P<word>[a-zA-Z]*)(?P<post>[^a-zA-Z]*)')
     non_alphabet = re.compile(r'^[^a-zA-Z]+$')
 
@@ -251,7 +93,7 @@ class Tokenizer:
     #  [u'computer', u'secret', u'@', u'1302'], 
     #  [u'Comput3r', u'S3cret', u'@', u'1302'])
     def tokenize(self, w, isMangling=False):
-        wt, s = self.keyboard.IsKeyboardSeq(w)
+        #s = self.keyboard.IsKeyboardSeq(w)
         if s: return ['K%d'%len(s)], s, [w]
         grp = self.date.IsDate(w)
         if grp:

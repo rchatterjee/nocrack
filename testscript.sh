@@ -5,7 +5,7 @@ do
     echo "-----------------------------------------------------"
     echo $line
     name=${line/.txt.bz2/}
-    python buildPCFG.py ../PasswordDictionary/passwords/$line
+    python buildpcfg.py ../PasswordDictionary/passwords/$line
     python honey_enc.py ../PasswordDictionary/passwords/$line
     mv logfile.txt testRes/logfile_$name.txt
 done
