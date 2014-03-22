@@ -5,53 +5,30 @@ This script implements HoneyEncription class for password vauld.
 it needs a PCFG in the following format.
 """
 
-import sys, os, math
+import sys, os, math, struct, bz2, resource
 from io import BytesIO
-import struct
 from mingle import *
-#from loadDic import break_into_words
 import random, marisa_trie
-import bz2 
+from collections import deque
+
 
 PASSWORD_LENGTH = 50
 DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
 NONTERMINAL = 1
+
 # IDEA:  every genrule could be kept in a Trie.
 # DRAWBACK: it is unlikely that those words will share
 # much prefix of each other...:p
 
-# m is any passwrd
-
-# def break_into_words( w, trie ):
-#     n = len(w);
-#     if n==1 : return [w];
-#     if n==0 : return [];
-#     Wlist = []
-#     try: prefix = trie.prefixes( unicode(w) );
-#     except: return []
-#     # print prefix
-#     prefix.reverse()
-#     if not prefix: return [];
-#     if prefix[0] == w: return [w];
-#     for p in prefix:
-#         if not p or len(p) == 0:
-#             print p; return [];
-#         W = break_into_words( w[len(p):], trie )
-#         if W:
-#             Wlist.append(p)
-#             Wlist.extend(W);
-#             break;
-#     return Wlist;
-
-def loadDicAndTrie(dFile, tFile) :
-    grammar = readPCFG( dFile );
-    trie    = marisa_trie.Trie().load( tFile )
-    if grammar['S'][0][-1][1] == grammar['S'][1]:
-        convertToPDF(grammar)
-    return grammar, trie
 
 def getVal( arr, val ):
-    # print val, '---\n', [str(s) for s in arr[0]];
+    """
+    arr -> is a list of values of type same as 'val' and also has a frequency
+    e.g. arr: [['a',0,123], ['asd', 1, 31], ['ADR', 1, 345]]
+    val -> is a value of same type of values in arr, e.g. 'asd'
+    returns: a random number between, cumulative probability of 'asd' and
+    the element just before it, i.e. 'a'.
+    """
     c=0
     found = False
     totalC=0;
@@ -67,27 +44,41 @@ def getVal( arr, val ):
             found = True
             print x, t
     if t>-1:
+        # to deal with floating this is used, basically converted the numebrs in (mod totalC)
+        # ASSUMPTION: max value of sum of frequency is 4,294,967,295, i.e. ~ 4.29 billion!!
         return t + random.randint(0, (4294967295-t)/totalC) * totalC
     return t
 
+
 def getIndex( arr, s, e, x ):
-    # print arr[s:e+1], s, e, x
+    """
+    Binary searches for 'x' in 'arr' between indices 's' and 'e'.
+    :return `integer` index of x in arr s.t. arr[index-1] <= x < arr[index] 
+    """
     if arr[s] > x: return s
     if arr[e] < x: return e;
     if arr[(s+e)/2] > x: return getIndex( arr, s, (s+e)/2, x )
     else: return getIndex( arr, (s+e)/2+1, e, x);
 
 
-# TODO: every array in grammar rule should have start with a dummy entry('',0,0) and prob zero!!
-def getGenerationAtRule( rule, prob, grammar):
-    # returns: ('IloveYou',0,420)
+def getGenerationAtRule( lhs, prob, grammar):
+    """
+    given a left hand side of a rule and the grammar it finds the exact rhs
+    which has CP(cumulative Probability) in the ruleset just more than the given 
+    `prob`
+    :returns `('IloveYou',0,420)`
+    """
+    # REMEMBER: every array in grammar rule should have start with a
+    # dummy entry('',0,0) and prob zero!!
     d = [0]
-    d.extend([x[2] for x in grammar[rule]])
+
+    d.extend([x[2] for x in grammar[lhs]])
     for i in xrange(1, len(d)):
         d[i] += d[i-1];
     prob = prob % d[-1]
     t = getIndex ( d, 0, len(d)-1, prob ) - 1;
-    return grammar[rule][t]
+    return grammar[lhs][t]
+
 
 def Encode_spcl( m, grammar ):
     print "Special Encoding::::", m
@@ -138,9 +129,9 @@ def Encode( m, tokenizer, grammar ):
         E.extend( [ random.randint(0, 4294967295) for x in range(extra) ] )
     return E
 
+
 # c is of the form set of numbers... 
 # probabilities, CDF
-from collections import deque
 def Decode ( c, grammar ):
     # c is io.BytesIO
     t = len( c );
@@ -173,7 +164,6 @@ def Decode ( c, grammar ):
 
     
         
-import resource
 def main():
     base_dictionary, tweak_fl, passwd_dictionary, out_grmmar_fl, out_trie_fl = readConfigFile(sys.argv[1])
     
