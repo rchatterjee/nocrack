@@ -29,7 +29,8 @@ class DTE:
             X = __import__('%s' % f)
             self.term_files[k] = {
                 'trie' : marisa_trie.Trie().load(GRAMMAR_DIR+f+'.tri'),
-                'arr' : eval("X.%s"%k)
+                'arr' : eval("X.%s"%k),
+                'trie_fl' : GRAMMAR_DIR+f+'.tri'
                 }
         self.G = Grammar()
         self.G.load(GRAMMAR_DIR+'/grammar.cfg')
@@ -91,7 +92,11 @@ class DTE:
 
     def get_freq(self, lhs, rhs):
         if lhs in self.term_files:
-            i = self.term_files[lhs]['trie'].key_id(unicode(rhs))
+            try:
+                i = self.term_files[lhs]['trie'].key_id(unicode(rhs))
+            except KeyError:
+                print "ERROR! Could not find '%s' in '%s'. Go debug!!" % ( rhs, self.term_files[lhs]['trie_fl'] )
+                exit(0)
             if i<0: 
                 print "KeyError in get_freq1:", lhs, rhs
                 return -1

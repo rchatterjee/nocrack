@@ -3,28 +3,24 @@ from buildPCFG import *
 from Crypto.Cipher import DES3
 from Crypto.Hash import SHA256
 import random
-FREQ = 0
-grammar = None
-trie = None
 
 
-def loadandmodifygrammar(mp):
-    #grammar, trie_t = loadDicAndTrie('data/grammar_combined-withcout.hny.bz2',
-    #                  'data/trie_combined-withcout.hny.bz2')
-    global grammar, trie
-    if not grammar or not trie:
-        grammar, trie = loadDicAndTrie('data/grammar_rockyou-withcount.hny.bz2', 'data/trie_rockyou-withcount.hny.bz2')
-    if not FREQ:
-        ModifyGrammar(grammar, mp, FREQ);
-        P, W, T = findPattern(mp)
-        trie_t = marisa_trie.Trie(trie.keys() + W)
-    return grammar, trie
+# def loadandmodifygrammar(mp):
+#     #grammar, trie_t = loadDicAndTrie('data/grammar_combined-withcout.hny.bz2',
+#     #                  'data/trie_combined-withcout.hny.bz2')
+#     global grammar, trie
+#     if not grammar or not trie:
+#         grammar, trie = loadDicAndTrie('data/grammar_rockyou-withcount.hny.bz2', 'data/trie_rockyou-withcount.hny.bz2')
+#     if not FREQ:
+#         ModifyGrammar(grammar, mp, FREQ);
+#         P, W, T = findPattern(mp)
+#         trie_t = marisa_trie.Trie(trie.keys() + W)
+#     return grammar, trie
 
 def hash_mp(mp):
     h = SHA256.new()
     h.update(mp)
     return h.hexdigest()[:16]
-
 
 def vault_encrypt(v_plaintexts, mp):
     iv = '01234567'
@@ -165,7 +161,7 @@ def testRandomDecoding(vault_cipher, n):
         #ModifyGrammar(grammar, mp, -FREQ)
 
 
-def main():
+def test1():
     global grammar, trie
     Vault = """
 fb.com <> 123456
@@ -191,6 +187,32 @@ yahoo.com <> password12
     testRandomDecoding(cipher, n)
 
 
+def main():
+        if len(sys.argv)<5 or sys.argv[0] in ['-h', '--help']:
+            print '''Taste the HoneyVault1.1 - a New Password Encrypting paradigm! 
+|| Encrypt with confidence ||
+--encode vault_plain.txt masterpassword vault_cipher.txt
+--decode vault_cipher.txt masterpassword stdout
+        '''
+        else:
+            f1 = sys.argv[2]
+            mp = sys.argv[3]
+            f2 = sys.argv[4]
+            if sys.argv[1] == '--encode': 
+                vault = [ l.strip().split(',')[2] for l in open(f1) if l[0] != '#']
+                cipher = vault_encrypt( vault, mp)
+                with open(f2,'wb') as outf: 
+                    n = len(vault)
+                    outf.write(struct.pack('<I', n))
+                    outf.write(cipher)
+                print "Your Vault is encrypted! Now you can delte the plaintext vault text."
+            elif sys.argv[1] == '--decode':
+                dt = open(f1, 'rb').read()
+                n = struct.unpack('<I', dt[:4])[0]
+                vault = vault_decrypt( dt[4:], mp, n )
+                print vault
+            else: print "Sorry Anthofila! Command not recognised."
+            
 if __name__ == "__main__":
     main();
 
