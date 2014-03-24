@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from mangle  import *
+from scanner  import *
 import csv
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]
@@ -26,17 +26,12 @@ ManglingRule: M
 ###################### --NEW VERSION-- ###################################
 
 
-def buildpcfg(config_fl):
-    base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(config_fl)
-    root_fl = open('roots.txt', 'w')
-    if os.path.exists(out_trie_fl) and os.path.exists(out_grammar_fl):
-        print "The grammar(%s) and trie(%s) already exist! Not recreating. remove to force." % ( out_grammar_fl, out_trie_fl)
-        # return;
-    T = Tokenizer(base_dictionary, tweak_fl)
-    G = Grammar(tokenizer=T)
+def buildpcfg(passwd_dictionary):
+    G = Grammar()
     # resource track
     resource_tracker = 5240
     allowed_sym = re.compile(r'[ \-_]')
+    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg'
     print re.findall(allowed_sym, 'P@ssword')
     for n, line in enumerate(open_(passwd_dictionary)):
         if n>resource_tracker:
@@ -59,36 +54,46 @@ Lines processed, {0:d}
             w, c = ' '.join(line), 1
         try:
             w.decode('ascii')
-        except UnicodeEncodeError:
+        except UnicodeDecodeError:
             continue    # not ascii hence return
-        if c < MIN_COUNT or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+        if c < MIN_COUNT*10 : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
             print "Word frequency dropped to %d for %s" % (c, w), n
             break  # Careful!!!
-        t = G.insert(w, c)
+        G.insert(w, c)
         # print t
-        root_fl.write("%s\t<>\t%s\n" % (' '.join(line), '~'.join(t)))
+        # root_fl.write("%s\t<>\t%s\n" % (' '.join(line), '~'.join(str((x,y)) for x,y in zip(W, Tag))))
         
     # TODO
     #push_DotStar_IntoGrammar( grammar );
-    root_fl.close(); exit(0)
     G.save(bz2.BZ2File(out_grammar_fl, 'w'))
-    marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
+    #marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
     return G
 
 
-def breakwordsintotokens(config_fl):
+def breakwordsintotokens(source_file):
     """
     Takes a password list file and break every password into possible tokens,
     writes back to a output_file, named as <input_fl>_out.tar.gz,in csv format.
     """
-    base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(config_fl)
+    passwd_dictionary = source_file
+    # for the direcotry
+    if not os.path.exists(GRAMMAR_DIR):
+        os.mkdir(GRAMMAR_DIR)
+    G_out_files = dict()
+    for k, f in GrammarStructure().getTermFiles().items():
+        G_out_files[k] = os.path.join(GRAMMAR_DIR, f)
+    Arr = {}
+    for k in G_out_files.keys():
+        Arr[k] = dict()
+    
+
     out_file_name = 'data/'+basename(passwd_dictionary).split('.')[0]+'_out.tar.gz'
     print passwd_dictionary, out_file_name
     output_file = open(out_file_name, 'wb')
     csv_writer = csv.writer(output_file, delimiter=',',
                             quotechar='"')
-    T = Tokenizer(base_dictionary, tweak_fl)
-    G = Grammar(tokenizer=T)
+    T = Scanner()
+    # G = Grammar(scanner=T)
     # resource track
     resource_tracker = 5240
     for n, line in enumerate(open_(passwd_dictionary)):
@@ -114,19 +119,42 @@ Lines processed, %d
             w.decode('ascii')
         except UnicodeDecodeError:
             continue     # not ascii hence return
-        if c < MIN_COUNT/100:
+        if c < MIN_COUNT*10:
             break
         # P is the patterns, W is the unmangled words, U is the original
-        wt, s = T.keyboard.IsKeyboardSeq(w)
-        if s: 
-            for l in s:
-                print l
-        continue 
+        Tags, W, U  = T.tokenize(w, True) 
         # print t
-        if P:
-            csv_writer.writerow([c, w, str(W)])
+        if 'password' in w:
+            print Tags, W
+        if Tags:
+            for t,w in zip(Tags, W):
+                try:
+                    Arr[t][w] += c
+                except KeyError:
+                    try: Arr[t][w] = c
+                    except KeyError:
+                        print "Something is wrong:", Tags, W
+            csv_writer.writerow([c, w, str(Tags), str(W), str(U)])
         else:
             print 'Failed to Parse:', w
+    for k, D in Arr.items():
+        T = marisa_trie.Trie(D.keys())
+        T.save(G_out_files[k] + '.tri')
+        n = len(D.keys())+1
+        A = [0 for i in xrange(n)]
+        s = 0
+        for w,c in D.items():
+            i = T.key_id(unicode(w))
+            try: 
+                A[i] =  c
+                s += c
+            except IndexError: 
+                print "IndexError", w
+        A[-1] = s
+        with open(G_out_files[k] + '.py', 'w') as f:
+            f.write('%s = [' % k)
+            f.write(',\n'.join(['%d' % x for x in A]))
+            f.write(']\n')
         # root_fl.write("%d,\'%s\t<>\t%s\n" % ( ' '.join(line), '~'.join(((t)))))
         
     # TODO
@@ -136,11 +164,10 @@ Lines processed, %d
 if __name__ == "__main__":
     #G = buildpcfg(sys.argv[1])
     #print G
-   base_dictionary, tweak_fl, passwd_dictionary, out_grammar_fl, out_trie_fl = readConfigFile(sys.argv[1])
-   T = Tokenizer(base_dictionary, tweak_fl)
-   for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032'
-, 'lovendall', 'fuckyou1', 'derek2'][:4]:
-       print T.tokenize(w, True)
+    
+    #T = Scanner()
+    #for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2', 'cutiepie1230', 'password1']:
+    #       print T.tokenize(w, True)
     #D = MobileN();
     #print D.parse('ram1992');
     # K = KeyBoard();
@@ -154,12 +181,14 @@ if __name__ == "__main__":
     #         if p != l[0]:
     #             print "ERROR:",  l[0], w, [], p
     #breakwordsintotokens(sys.argv[1])
+    buildpcfg(sys.argv[1])
+    G = Grammar()
+    G.load(GRAMMAR_DIR+'grammar.cfg')
+    print G.G
+
+
+
     
-
-
-
-
-
 
 
 

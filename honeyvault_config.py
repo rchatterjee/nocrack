@@ -14,9 +14,30 @@ PASSWORD_LEAK   = "../PasswordDictionary/passwords/rockyou-withcount.txt.bz2"
 
 
 #DIC_TRIE_FILE = 'data/english.tri'
-DIC_TRIE_FILE = 'Dictionary_Store/dictionary.tri'
+DICTIONARY_DAWG = 'Dictionary_Store/dictionary1.1.dawg'
 STANDARD_DIC_FILE = "Dictionary_Store/standard_english.tri"
 
 GRAMMAR_OUTPUT_FILE = "./data/combined.gmr.bz2"
 GRAMMAR_INPUT_FILE  = "./data/combined.tri.bz2"
 HANDGRAMMAR_FILE    = "./data/grammar.txt"
+
+GRAMMAR_DIR = './Grammar/'
+
+# Dont change 
+EPSILON = '|_|'
+GRAMMAR_R = 0
+MEMLIMMIT = 1024  # 1024 MB, 1GB
+MIN_COUNT = 30
+PASSWORD_LENGTH = 100
+DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
+NONTERMINAL = 1
+TERMINAL = 1 - NONTERMINAL
+
+
+
+# vault size to number map
+# we shall learn it later
+VAULT_SIZE_TO_FREQ = [ 0, 6, 10, 13, 8, 9, 12, 15, 12, 3, 2, 1, 4, 1, 1, 1, 1]
+VAULT_SIZE_TO_FREQ.append(sum(VAULT_SIZE_TO_FREQ))
+MAX_VAULT_SIZE = 50
+    
