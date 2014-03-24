@@ -1,3 +1,101 @@
+import re 
+
+
+class GrammarStructure:
+    g_reg = r'^(?P<lhs>[A-Z]+)\s+->(?P<rhs>.*)$'
+    G = {}
+
+    def __init__(self, g_file='sample_grammarstructure.cfg'):
+        for l in open(g_file):
+            l = l.strip()
+            m = re.match(self.g_reg, l)
+            rhs = ['xx' if re.match(r'None', y) else y.strip().strip("'") for y in  m.group('rhs').split('|')]
+            try:
+                self.G[m.group('lhs')].extend(rhs)
+            except KeyError:
+                self.G[m.group('lhs')] = rhs
+    
+    def getTermFiles(self):
+        fl_list = {}
+        for k, v in self.G.items():
+            reg = re.compile(r'\<(?P<name>.+)\>')
+            for r in v:
+                m = reg.match(r)
+                if m: 
+                    fl_list[k] = m.group('name')
+        return fl_list
+
+    def to_json(self):
+        return json.dumps(self.G)
+    def __str__(self):
+        return '\n'.join(['%s -> %s' % (lhs, ' | '.join(rhs)) for lhs, rhs in self.G.items()])
+
+
+class Token:
+    def __init__(self, val=None, type_=0, meta=None):
+        self.value = val    # string/Token
+        self.type_ = type_  # 0(NonT), 1(Terminal), 2(others)
+        self.meta  = meta   # Mangles
+
+    def __str__(self):
+        return str([self.value, self.type_])
+
+    def show(self):
+        return self.value
+        
+    def getval(self):
+        return self.value
+
+    def __init__(self, strng):
+        m = re.match(r"'(.*)'", strng)
+        if m:
+            self.value = m.group(1)
+            self.type_ = 1   # Terminal
+            self.meta = ''
+        else:
+            self.value = strng
+            self.type_ = 0
+            self.meta  = strng
+
+    def __eq__(self, other):
+        return self.value == other.value and self.type_ == other.type_
+
+
+class Rule:
+    def __init__(self, rhs, freq=0):
+        if type([]) == type(rhs):
+            self.rhs = rhs    # list of Tokens
+        else:
+            self.rhs = [Token(x) for x in rhs.split(' ')]
+        self.freq= freq
+
+    def __eq__(self, other):
+        if len(self.rhs) != len(other.rhs):
+            return False
+        for x, y in zip(self.rhs, other.rhs):
+            if x != y: return False
+        return True
+
+
+class ParseTree:
+    def __init__(self):
+        self.tree = dict('S', [])
+
+    def example(self):
+        self.tree = {'G': [
+            {'F': [{'B': ['']}, {'P': ['1']}, {'W': ['computer']}, {'S': ['']}]},
+            {'I': ['']},
+            {'F': [{'B': ['']}, {'P': ['']}, {'W': ['secret']}, {'S': ['23']}]},
+        ]}
+
+
+# class Grammar:
+#     def __init__(self):
+#         g_structure = GrammarStructure()
+#         self.g = dict(('R', []))   # list of rules, R start symbol
+#         for lhs, rhs in g_structure.G.items():
+#             self.g[lhs] = [Rule(r) for r in rhs]
+
 
 class Mangle:
     def __init__(self, w, mw):
@@ -18,7 +116,7 @@ class Mangle:
 class Tweaker:
     rules = {'3':'e',
              '4':'a',
-             '@':'a'
+             '@':'a',
              '$':'s',
              '0':'o',
              '1':'i',
@@ -181,3 +279,6 @@ class Date:
         m_dict = dict((k,v) for k,v in m.groupdict().iteritems() if v and k!='date')
         
         return ['T', m_dict.keys(), m_dict.values()]
+
+if __name__ == "__main__":
+    print GrammarStructure().getTermFiles()
