@@ -2,16 +2,11 @@
 
 import sys, os
 import bz2, re
-import marisa_trie, json
+import marisa_trie, json, random
 
 # For checking memory usage
 import resource
 
-EPSILON = '|_|'
-GRAMMAR_R = 0
-NONTERMINAL = 1
-MEMLIMMIT = 1024  # 1024 MB, 1GB
-MIN_COUNT = 30
 
 from os.path import (expanduser, basename)
 # opens file checking whether it is bz2 compressed or not.
@@ -80,3 +75,18 @@ def mean_sd(arr):
     m = s / float(n)
     sd = sqrt(float(s2) / n - m * m)
     return m, sd
+
+
+
+def convert2group(t, totalC):
+    return t + random.randint(0, (4294967295-t)/totalC) * totalC
+    
+
+# assumes last element in the array(A) is the sum of all elements
+def getIndex(p, A):
+    p %= A[-1]
+    i = 0;
+    for i, v in enumerate(A):
+        p -= v;
+        if p<0: break
+    return i
