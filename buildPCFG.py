@@ -32,7 +32,6 @@ def buildpcfg(passwd_dictionary):
     resource_tracker = 5240
     allowed_sym = re.compile(r'[ \-_]')
     out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg'
-    print re.findall(allowed_sym, 'P@ssword')
     for n, line in enumerate(open_(passwd_dictionary)):
         if n>resource_tracker:
             r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
@@ -70,12 +69,11 @@ Lines processed, {0:d}
     return G
 
 
-def breakwordsintotokens(source_file):
+def breakwordsintotokens(passwd_dictionary):
     """
     Takes a password list file and break every password into possible tokens,
     writes back to a output_file, named as <input_fl>_out.tar.gz,in csv format.
     """
-    passwd_dictionary = source_file
     # for the direcotry
     if not os.path.exists(GRAMMAR_DIR):
         os.mkdir(GRAMMAR_DIR)
@@ -85,8 +83,6 @@ def breakwordsintotokens(source_file):
     Arr = {}
     for k in G_out_files.keys():
         Arr[k] = dict()
-    
-
     out_file_name = 'data/'+basename(passwd_dictionary).split('.')[0]+'_out.tar.gz'
     print passwd_dictionary, out_file_name
     output_file = open(out_file_name, 'wb')
@@ -161,7 +157,22 @@ Lines processed, %d
     #push_DotStar_IntoGrammar( grammar );
     output_file.close()
 
+def main():
+    if len(sys.argv)<2 or sys.argv[0] in ['-h', '--help']:
+        print '''Taste the HoneyVault1.1 - a New Password Encrypting paradigm!
+This is the PCFG generator script! Are you sure you wanna use this script.
+--build-dawg password_leak_file
+--build-pcfg password_leak_file
+        '''
+    else:
+        if sys.argv[1] == '--build-dawg': breakwordsintotokens( sys.argv[1] )
+        elif sys.argv[1] == '--build-pcfg': buildpcfg( sys.argv[1] )
+        else: print "Sorry Hornet! Command not recognised."
+        
+
+
 if __name__ == "__main__":
+    main()
     #G = buildpcfg(sys.argv[1])
     #print G
     
@@ -181,10 +192,10 @@ if __name__ == "__main__":
     #         if p != l[0]:
     #             print "ERROR:",  l[0], w, [], p
     #breakwordsintotokens(sys.argv[1])
-    buildpcfg(sys.argv[1])
-    G = Grammar()
-    G.load(GRAMMAR_DIR+'grammar.cfg')
-    print G.G
+    # buildpcfg(sys.argv[1])
+    # G = Grammar()
+    # G.load(GRAMMAR_DIR+'grammar.cfg')
+    # print G.G
 
 
 
