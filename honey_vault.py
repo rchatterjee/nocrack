@@ -1,9 +1,11 @@
 from honey_enc import *
 from buildPCFG import *
-from Crypto.Cipher import DES3
+from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
-import random
-
+from Crypto.Protocol.KDF import PBKDF1
+from Crypto.Random import random
+from Crypto.Util import Counter
+from Crypto import Random
 
 # def loadandmodifygrammar(mp):
 #     #grammar, trie_t = loadDicAndTrie('data/grammar_combined-withcout.hny.bz2',
@@ -22,19 +24,22 @@ def hash_mp(mp):
     h.update(mp)
     return h.hexdigest()[:16]
 
+def do_crypto_setup(mp):
+    salt = b'asombhob'
+    key = PBKDF1(mp, salt, 16, 100, SHA256)
+    ctr = Counter.new(128, initial_value=long(254))
+    aes = AES.new(key, AES.MODE_CTR, counter=ctr)
+    return aes 
+
+
 def vault_encrypt(v_plaintexts, mp):
-    iv = '01234567'
-    vault_code = vault_encode(v_plaintexts, mp)
-    des3 = DES3.new(hash_mp(mp), DES3.MODE_CFB, iv)
-    # plaintext= staruct.pack("%sI" % len(vault_code), *vault_code)
-    c = des3.encrypt(vault_code)
-    return c
+    aes = do_crypto_setup(mp)
+    return aes.encrypt(vault_encode(v_plaintexts, mp))
 
 
 def vault_decrypt(v_ciphertexts, mp, vault_size):
-    iv = '01234567'
-    des3 = DES3.new(hash_mp(mp), DES3.MODE_CFB, iv)
-    return vault_decode(des3.decrypt(v_ciphertexts), mp, vault_size)
+    aes = do_crypto_setup(mp)
+    return vault_decode(aes.decrypt(v_ciphertexts), mp, vault_size)
 
 
 def vault_encode(vault, mp):
