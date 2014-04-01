@@ -7,7 +7,8 @@ it needs a PCFG in the following format.
 
 import sys, os, math, struct, bz2, resource
 from io import BytesIO
-import random, marisa_trie
+from Crypto.Random import random
+import marisa_trie
 from collections import deque
 from scanner_helper import *
 from scanner import *
