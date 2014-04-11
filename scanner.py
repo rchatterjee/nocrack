@@ -111,7 +111,10 @@ class Scanner:
         # print self.unmangle_word(w)
         #m = re.match(self.d_w_d, w)        
         if isMangling:
+            # Dont do any fansy unmangling now..:P
             T = self.unmangle_word(w) # unmangled breakup
+            #T = [ sym for w in T for list_match in re.findall(regex, w) 
+            #      for sym in list_match if sym ]
             if not T: T = [w]
             # print 'TOkenize:', T
 
@@ -191,7 +194,6 @@ class Grammar:
             self.G[lhs][2] += freq
         except KeyError:
             G[lhs]=[[rhs], [[freq,  typ]], freq]
-            
             
             
     def addRule(self, lhs, rhs, isNonT, freq):
@@ -289,7 +291,7 @@ class Grammar:
         return x in self.G
     
     def __str__(self):
-        return str(self.G)
+        return "Grammar: " + str(self.G)
 
     def findPath(self, w):
         # scanner cannont be null,
