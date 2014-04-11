@@ -48,6 +48,8 @@ def vault_encode(vault, mp):
     dte = DTE()
     G = Grammar()
     G.G = {}
+
+    # sub-grammar generation
     for v in set(vault): # bring in Vault distribution
         T, W, U = S.tokenize(v, True)
         rule = ','.join(T)
@@ -56,8 +58,9 @@ def vault_encode(vault, mp):
         for (l,r) in zip(T,W):
             f = dte.get_freq(l, r)
             G.addRule_lite(l, r, f[0], f[1], True )
-    #print "SUB_GRAMMAR", G.G
-    #print "-"*30
+
+
+    # Encode sub-grammar
     stack = ['G']
     code_g = []
     while stack:
@@ -71,11 +74,15 @@ def vault_encode(vault, mp):
         code_g.append(convert2group(sum(VAULT_SIZE_TO_FREQ[:n]), VAULT_SIZE_TO_FREQ[-1]))
         code_g.extend([dte.encode(head, r) for r in rule])
         
-    #print code_g
 
+    # reset the dte and use the subgrammar for subsequent operations
     dte.update_dte_for_vault(G)
+    
+    # we have to publish the vault size some where in the encoding.
     # n = len(vault)
     # code_g.append(convert2group(n, MAX_VAULT_SIZE)) # this is public info
+
+    # encode every password in the vault using the newly generated sub-grammar
     for v in vault: # bring in Vault distribution
         T, W, U = S.tokenize(v, True)
         rule = ','.join(T)
@@ -87,19 +94,23 @@ def vault_encode(vault, mp):
                 exit(0)
                 # return Encode_spcl(m, grammar)
             code_g.append( t )
+
+    # padd the encoding with some random numbers to make it of size PASSWORD_LENGTH 
     if PASSWORD_LENGTH>0:
         extra = PASSWORD_LENGTH - len(code_g);
         code_g.extend( [ convert2group(0,1) for x in range(extra) ] )
+
+    # pack the 'integers' into a struct
     c_struct = struct.pack('%sI' % len(code_g), *code_g )
     return c_struct
-#    return [ Encode(v, trie, grammar) for v in vault ]
 
 
 def vault_decode(cipher, mp, vault_size):
     dte = DTE()
     t = len( cipher );
     P = struct.unpack('%sI'%(t/4), cipher )
-    # first decode the grammar part
+
+    # first decode the sub-grammar part from the large grammar
     G=Grammar()
     G.G = {}
     iterp = iter(P)
@@ -118,6 +129,8 @@ def vault_decode(cipher, mp, vault_size):
         t_set = list(set(NonTlist))
         t_set.reverse()
         stack.extend(t_set)
+
+    # decode every password in order using the newly generated sub-grammar
     #print "DecodedGrammar", G
     dte.update_dte_for_vault(G)
     pass_vault = []
@@ -137,9 +150,6 @@ def vault_decode(cipher, mp, vault_size):
     return pass_vault;
 
                            
-
-
-#    return [Decode(c, grammar) for c in cipher]
 
 
 def testRandomDecoding(vault_cipher, n):
