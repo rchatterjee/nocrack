@@ -97,17 +97,18 @@ class DTE:
                 i = self.term_files[lhs]['trie'].key_id(unicode(rhs))
             except KeyError:
                 print "ERROR! Could not find '%s' in '%s'. Go debug!!" % ( rhs, self.term_files[lhs]['trie_fl'] )
-                exit(0)
+                return [-1, -1]
             if i<0: 
                 print "KeyError in get_freq1:", lhs, rhs
-                return -1
+                return -1, -1
             return [self.term_files[lhs]['arr'][i], TERMINAL]
         try:
             i = self.G[lhs][0].index(rhs)
             return self.G[lhs][1][i]
-        except KeyError: 
-            print "KeyError in get_freq2:", lhs, rhs
-            return -1
+        except ValueError: 
+            print "ValueError in get_freq -- %s is not in %s:" % \
+                (rhs,self.G[lhs][0])
+            return -1, -1
     
     def update_dte_for_vault(self, G):
         self.term_files_bak = self.term_files

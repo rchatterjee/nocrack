@@ -55,7 +55,7 @@ Lines processed, {0:d}
             w.decode('ascii')
         except UnicodeDecodeError:
             continue    # not ascii hence return
-        if c < MIN_COUNT*10 : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+        if c < MIN_COUNT : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
             print "Word frequency dropped to %d for %s" % (c, w), n
             break  # Careful!!!
         G.insert(w, c)
@@ -163,10 +163,14 @@ def main():
 This is the PCFG generator script! Are you sure you wanna use this script.
 --build-dawg password_leak_file
 --build-pcfg password_leak_file
+--build-all password_leak_file
         '''
     else:
-        if sys.argv[1] == '--build-dawg': breakwordsintotokens( sys.argv[1] )
-        elif sys.argv[1] == '--build-pcfg': buildpcfg( sys.argv[1] )
+        if sys.argv[1] == '--build-dawg': breakwordsintotokens( sys.argv[2] )
+        elif sys.argv[1] == '--build-pcfg': buildpcfg( sys.argv[2] )
+        elif sys.argv[1] == '--build-all':  
+            breakwordsintotokens( sys.argv[2] )
+            buildpcfg( sys.argv[2] )
         else: print "Sorry Hornet! Command not recognised."
         
 

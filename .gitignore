@@ -4,6 +4,6 @@
 *.pyc
 *.gz
 data/
-honey_venv/
+honeyvenv/
 rockYouPasswords/
 test/
