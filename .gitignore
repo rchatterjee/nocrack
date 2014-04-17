@@ -7,3 +7,5 @@ data/
 honeyvenv/
 rockYouPasswords/
 test/
+*.db
+*.bin
