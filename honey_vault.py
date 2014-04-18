@@ -41,7 +41,6 @@ def vault_decrypt(v_ciphertexts, mp, vault_size):
     aes = do_crypto_setup(mp)
     return vault_decode(aes.decrypt(v_ciphertexts), mp, vault_size)
 
-
 def vault_encode(vault, mp):
     #print vault
     S = Scanner()
