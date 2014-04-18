@@ -153,8 +153,9 @@ def GetWebsiteMapping(username, bearer_token):
             domain_list = [x.strip() for x in open(STATIC_DOMAIN_LIST)]
         except:
             domain_list = [x.strip() for x in open('server/' + STATIC_DOMAIN_LIST)]
-    website_map = dict([(hash_mp(d),i) for i,d in enumerate(domain_list)])
-    return website_map
+        website_map = dict([(hash_mp(d),i) for i,d in enumerate(domain_list)])
+        return website_map
+    return "Sorry! Get an account first."
 
 @app.route("/")
 def hello():
@@ -190,10 +191,11 @@ def refresh_token():
     bearer_token  = request.form.get('token', '')
     return RefreshToken(username, bearer_token)
 
-@app.route('/getdomains')
+@app.route('/getdomains', methods=['POST'])
 def get_domain_mapping():
-    return json.dumps(GetWebsiteMapping())
+    username = request.form.get('username', '')
+    bearer_token  = request.form.get('token', '')
+    return json.dumps(GetWebsiteMapping(username, bearer_token))
 
-if __name__ == "__main__":
-    
+if __name__ == "__main__":    
     app.run(debug=True)
