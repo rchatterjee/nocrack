@@ -7,7 +7,7 @@ from Crypto.Random import random
 from Crypto.Util import Counter
 from Crypto import Random
 import binascii
-import re, datetime, sys
+import re, datetime, sys, json
 sys.path.append('../')
 from honeyvault_config import *
 
@@ -92,6 +92,12 @@ class User(db.Model):
         db.session.add(self)
         db.session.commit()
 
+def authUser(username, bearer_token):
+    u = User.query.filter_by(username=username).first()
+    if u and u.bearer_token == bearer_token:
+        return u
+    return None
+
 def Register(username):
     if not username or not isEmail(username):
         print "<%s> is not a valid Email!" % (username)
@@ -118,8 +124,8 @@ def ValidateEmail(username, email_token):
         return "Wrong Token"
 
 def WriteVault(username, bearer_token, vault):
-    u = User.query.filter_by(username=username).first()
-    if u and u.bearer_token == bearer_token:
+    u = authUser(username, bearer_token)
+    if u:
         u.vault_c = vault_c
         u.save()
         return "Done!"
@@ -127,29 +133,28 @@ def WriteVault(username, bearer_token, vault):
 
 # mp_hash = hash(mp, slat_pub)
 def ReadVault(username, bearer_token):
-    u = User.query.filter_by(username=username).first()
-    print username, bearer_token
-    if u and u.bearer_token == bearer_token:
+    u = authUser(username, bearer_token)
+    if u:
         return u.vault_c
-    print u
     return 'Read is not allowed!'
 
 def RefreshToken(username, bearer_token):
-    u = User.query.filter_by(username=username).first()
-    if u and u.bearer_token == bearer_token:
+    u = authUser(username, bearer_token)
+    if u:
         u.refresh_token()
         u.save()
         return u.bearer_token
     return 'Not Permitted!'
 
-def GetWebsiteMapping():
-    website_map = {
-        'account.google.com' : 1,
-        'yahoo.com' : 2,
-        'facebook.com': 3
-        }
-    return json.encode( website_map );
-
+def GetWebsiteMapping(username, bearer_token):
+    u = authUser(username, bearer_token)
+    if u:
+        try:
+            domain_list = [x.strip() for x in open(STATIC_DOMAIN_LIST)]
+        except:
+            domain_list = [x.strip() for x in open('server/' + STATIC_DOMAIN_LIST)]
+    website_map = dict([(hash_mp(d),i) for i,d in enumerate(domain_list)])
+    return website_map
 
 @app.route("/")
 def hello():
@@ -185,7 +190,10 @@ def refresh_token():
     bearer_token  = request.form.get('token', '')
     return RefreshToken(username, bearer_token)
 
-    
+@app.route('/getdomains')
+def get_domain_mapping():
+    return json.dumps(GetWebsiteMapping())
+
 if __name__ == "__main__":
     
     app.run(debug=True)

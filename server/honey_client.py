@@ -68,7 +68,6 @@ e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
     req = create_request('read', data)
     return urllib2.urlopen(req).read()
 
-
 def refresh( *args ):    
     h_string =  """
 cmd: refresh
@@ -84,6 +83,21 @@ e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
     req = create_request('refresh', data)
     return urllib2.urlopen(req).read()
 
+def get_static_domains( *args ):
+    h_string =  """
+cmd: refresh
+$ %s -v <email> <token>
+e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
+""" % (sys.argv[0], sys.argv[0])
+    if len(args)<2:
+        print h_string
+        return ''
+    data = {'username' : args[0],
+            'token' : args[1].strip("'"),
+            }
+    req = create_request('getdomains', data)
+    return urllib2.urlopen(req).read()
+    
 def default( *args ):
     print '\n'.join("%s - %s" % (k,v) for k,v in command_func_map.items())
     return "You are a moron!"
