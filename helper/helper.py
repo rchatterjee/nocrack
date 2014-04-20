@@ -2,7 +2,10 @@
 
 import sys, os
 import bz2, re
-import marisa_trie, json, random
+import marisa_trie
+import json
+from Crypto.Random import random
+from honeyvault_config import MAX_INT
 
 # For checking memory usage
 import resource
@@ -77,9 +80,8 @@ def mean_sd(arr):
     return m, sd
 
 
-
 def convert2group(t, totalC):
-    return t + random.randint(0, (4294967295-t)/totalC) * totalC
+    return t + random.randint(0, (MAX_INT-t)/totalC) * totalC
     
 
 # assumes last element in the array(A) is the sum of all elements

@@ -1,45 +1,120 @@
-from honey_enc import *
-from buildPCFG import *
+from honey_enc import DTE, DTE_large
+from scanner import Grammar, Scanner
+import honeyvault_config as hny_config
+#from buildPCFG import *
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
 from Crypto.Random import random
 from Crypto.Util import Counter
 from Crypto import Random
+import copy
+from helper import convert2group
 
-# def loadandmodifygrammar(mp):
-#     #grammar, trie_t = loadDicAndTrie('data/grammar_combined-withcout.hny.bz2',
-#     #                  'data/trie_combined-withcout.hny.bz2')
-#     global grammar, trie
-#     if not grammar or not trie:
-#         grammar, trie = loadDicAndTrie('data/grammar_rockyou-withcount.hny.bz2', 'data/trie_rockyou-withcount.hny.bz2')
-#     if not FREQ:
-#         ModifyGrammar(grammar, mp, FREQ);
-#         P, W, T = findPattern(mp)
-#         trie_t = marisa_trie.Trie(trie.keys() + W)
-#     return grammar, trie
+rnd_source = Random.new()
 
-def hash_mp(mp):
-    h = SHA256.new()
-    h.update(mp)
-    return h.hexdigest()[:16]
-
-def do_crypto_setup(mp):
-    salt = b'asombhob'
+#-------------------------------------------------------------------------------
+def do_crypto_setup(mp, salt = b'madhubala'):
     key = PBKDF1(mp, salt, 16, 100, SHA256)
     ctr = Counter.new(128, initial_value=long(254))
     aes = AES.new(key, AES.MODE_CTR, counter=ctr)
     return aes 
 
+class HoneyVault:
+    s1 = hny_config.HONEY_VAULT_S1
+    s2 = hny_config.HONEY_VAULT_S2
+    s_g = hny_config.HONEY_VAULT_GRAMMAR_SIZE
+    s = hny_config.HONEY_VAULT_STORAGE_SIZE
+    vault_total_size = hny_config.HONEY_VAULT_ENCODING_SIZE
+    sample = [0,1,2]
 
-def vault_encrypt(v_plaintexts, mp):
-    aes = do_crypto_setup(mp)
-    return aes.encrypt(vault_encode(v_plaintexts, mp))
+    def __init__(self, vault_fl, mp):
+        self.pcfg = DTE_large()
+        self.scanner = Scanner() # default scanner
+        domain_hash_map_fl = domain_hash_map if domain_hash_map \
+            else 'server/static_domain_hashes.txt'
+        self.domain_hash_map = json.load(open_(domain_hash_map_fl))
+        self.vault_fl = vault_fl
+        self.initialize_vault(mp)
+        self.dte = DTE(self.PCFG.decode_grammar(self.H))
+
+    def get_domain_index(self, d):
+        h = SHA256.new()
+        h.update(d)
+        d_hash = h.hexdigest()[:32]
+        try:
+            return self.domain_hash_map[d_hash]
+        except KeyError:
+            sys.stderr('WARNING! S1 miss for', d)
+            x = struct.unpack('8I', h.digest())[0]
+            return self.s1 + x % self.s2
+
+    def initialize_vault(self):
+        if not os.path.exist(self.vault_fl):
+            self.H = [convert2group(0,1) 
+                      for x in range(self.s_g)]
+            self.S = [convert2group(0,1) 
+                      for x in range(self.s)]
+            self.H[0] = hny_config.VAULT_SIZE_TO_FREQ[0]
+            self.salt = rnd_source.read(size=16)
+            self.save()
+        else:
+            self.load()
+
+    def add_password(self, domain_pw_map):
+        nG = copy.deepcopy(self.dte.G)
+        for p in domain_pw_map.values(): 
+            nG.update(p)
+        nG.fix_freq(self.pcfg)
+        ndte = DTE(nG)
+        if ndte != DTE:
+            # if new dte is different then 
+            for i, p in enumerate(self.S):
+                self.S[i] = ndte.encode(
+                    self.dte.decode_pw(self.S[i]))
+        for d,p in domain_pw_map:
+            self.S[ self.get_domain_index(d) ] = \
+                self.dte.encode_pw(p)
+
+    def get_password(self, domain_list):
+        pw_list = [self.dte.decode_pw(
+                self.S[self.get_domain_index(d)])
+                   for d in domain_list ]
+        return OrderedDict(zip(domain_list, pw_list)) 
+    
+    def get_sample_decoding(self):
+        """
+        check some of the sample decoding to make sure you are
+        not accidentally spoiling the vault
+        """
+        return [self.dte.decode_pw(self.S[i]) for i in self.sample]
+
+    def save(self):
+        with open(self.vault_fl, 'wb') as fvault:
+            fvault.write(self.salt)
+            arr = self.H
+            for a in self.S:
+                arr.extend(a) 
+            assert len(arr) == hny_config.HONEY_VAULT_ENCODING_SIZE
+            
+            aes = do_crypto_setup(mp, self.salt)
+            fvault.write(aes.encrypt(
+                    struct.pack('!%sI' % len(arr), arr)))
+
+    def load(self, mp):
+        with open(vault_fl, 'rb') as fvault:
+            self.salt = fvault.read(16)
+            aes = do_crypto_setup(mp, self.salt)
+            buf = aes.decrypt(self.fvault.read())
+            self.H, t_s = \
+                struct.unpack('!%(s_g)sI%(s)sI' % self, buf)
+            self.S = [t_s[i*hny_config.PASSWORD_LENGTH:\
+                              (i+1)*hny_config.PASSWORD_LENGTH] 
+                      for i in range(self.s)]
 
 
-def vault_decrypt(v_ciphertexts, mp, vault_size):
-    aes = do_crypto_setup(mp)
-    return vault_decode(aes.decrypt(v_ciphertexts), mp, vault_size)
+
+
 
 def vault_encode(vault, mp):
     #print vault
@@ -66,11 +141,14 @@ def vault_encode(vault, mp):
         head = stack.pop()
         rule = G[head][0]
         t_set = []
-        t_set = list(set([ x for i,r in enumerate(rule) for x in r.split(',') if G[head][1][i][1] is NONTERMINAL ]))
+        t_set = list(set([ x for i,r in enumerate(rule) 
+                           for x in r.split(',') 
+                           if G[head][1][i][1] is NONTERMINAL ]))
         t_set.reverse()
         stack.extend(t_set)
         n = len(rule)
-        code_g.append(convert2group(sum(VAULT_SIZE_TO_FREQ[:n]), VAULT_SIZE_TO_FREQ[-1]))
+        code_g.append(convert2group(sum(VAULT_SIZE_TO_FREQ[:n]), 
+                                    VAULT_SIZE_TO_FREQ[-1]))
         code_g.extend([dte.encode(head, r) for r in rule])
         
 
