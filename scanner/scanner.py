@@ -7,10 +7,14 @@ import struct, json, bz2
 from helper import *
 from honeyvault_config import *
 from scanner_helper import *
+from collections import OrderedDict, defaultdict
 
-
+#--------------------------------------------------------------------------------
 class Scanner:
-    d_w_d = re.compile(r'(?P<pre>[^a-zA-Z]*)(?P<word>[a-zA-Z]*)(?P<post>[^a-zA-Z]*)')
+    d_w_d = re.compile(r"""(?P<pre>[^a-zA-Z]*)
+(?P<word>[a-zA-Z]*)
+(?P<post>[^a-zA-Z]*)
+""", re.MULTILINE)
     non_alphabet = re.compile(r'^[^a-zA-Z]+$')
 
     def __init__( self, dawg=None, tweaker=None):
@@ -25,7 +29,8 @@ class Scanner:
             self.dawg = DAWG()
             self.dawg.load(DICTIONARY_DAWG)
         if not self.dawg:
-            print "Oh My God!! You dont have the dictionary({DICTIONARY_DAWG}). I can't take it. Exiting!".format(**locals())
+            print """Oh My God!! You dont have the dictionary({DICTIONARY_DAWG}). \
+                I can't take it. Exiting!""".format(**locals())
             exit(0);
         self.infix = '@._*'
 
@@ -161,80 +166,88 @@ class Scanner:
     def get_parse_tree(self, w):
         T, W, U = self.tokenize(v, True)
         rule = ','.join(T)
-        G = {}
-        G['G'] = rule
-        for (l,r) in zip(T,W):
-            try:
-                index = G[l][0].find(r)
-                if index<0: 
-                    G[l][0].append(r)
-                    G[l][1].append([0,TERMINAL])
-            except:
-                G[l] = [[r],[[0,TERMINAL]]]
-            
+        G = defaultdict(dict)
+        G['G'][rule] = [0,NONTERMINAL]
+        for l,r in zip(T,W):
+            G[l][r] = [0, NONTERMINAL]
+
+        # TODO - make it better with Capitalization,
+        # AllCaps, L33t etc.
+        for l,r in zip(W,U):
+            if l != r:
+                for c,d in zip(l,r):
+                    G[c][d] = [0, TERMINAL]
+        return G
+
+#--------------------------------------------------------------------------------
 class Grammar:
     inversemap = {}
     def __init__(self, config_fl=None, scanner=None):
-        self.scanner = scanner;
-        if not scanner:
-            self.scanner = Scanner() 
+        self.scanner = scanner if scanner else Scanner()
         self.grammar_structure = GrammarStructure().G
-        self.G={}
+        self.G = defaultdict(OrderedDict)
         for k,v in self.grammar_structure.items():
             if len(v)!=1: 
-                keys = v
-                freq = [[0, (NONTERMINAL if x.isalpha() else TERMINAL)] for x in v]
-                self.G[k] = [keys, freq, 0]
-                
+                self.G.update([(x, [0, (NONTERMINAL if x.isupper() 
+                                        else TERMINAL)
+                                    ]) 
+                               for x in v])
+
         # self.addDotStarRules();
         # TODO: make it better
         from string import ascii_letters, digits, punctuation
         for typ, characters in zip('LDY', [ascii_letters, digits, punctuation]): 
-            self.G[typ] = [[x for x in characters], [[MIN_COUNT-1, TERMINAL] for x in characters], 0]
-            self.G['G'][0].append('%s,G' % typ)
-            self.G['G'][1].append([MIN_COUNT-1, NONTERMINAL])
-            self.G['G'][2] += MIN_COUNT-1
+            self.G[typ] = OrderedDict([(x, [MIN_COUNT-1, TERMINAL]) 
+                                       for x in characters])
+            self.G['G']['%s,G' % typ] = [MIN_COUNT-1, NONTERMINAL]
 
-    def addRule_lite( self, lhs, rhs, freq, typ, ignore_addingfreq = False): # typ is NONTERMINAL or NERMINAL
-        G = self.G
+    def addRule_lite(self, lhs, rhs, freq, typ, 
+                     ignore_addingfreq = False): # typ is NONTERMINAL or NERMINAL
+        self.G[lhs].setdefault(rhs, [0,typ])
+        if not ignore_addingfreq:
+            self.G[lhs][rhs][0] += freq
+            
+    def update_total_freq(self):
+        for lhs, rhs_dict in self.G.items():
+            rhs_dict['__total__'] = sum([x[0] for x in rhs_dict.values])
+
+    def parse_pw(self, pw):
+        return self.scanner.tokenize(pw)
+
+    def get_freq_range(self, lhs, rhs):
+        rhs_dict = self.G[lhs]
         try:
-            i = G[lhs][0].index(rhs)
-            if not ignore_addingfreq:
-                G[lhs][1][i][0] += freq
-                G[lhs][2] += freq
-        except ValueError: 
-            self.G[lhs][0].append(rhs)
-            self.G[lhs][1].append([freq, typ])
-            self.G[lhs][2] += freq
-        except KeyError:
-            G[lhs]=[[rhs], [[freq,  typ]], freq]
-            
-            
-    def addRule(self, lhs, rhs, isNonT, freq):
-        G = self.G
-        # is lhs exist?
-        try: x = G[lhs]
-        except KeyError: # insert the lhs first
-            G[lhs] = []
-        try: # found in the inversemap => previous entry exist
-            if len(rhs)>1:
-                pos = Grammar.inversemap[rhs]
-            else:
-                pos = -1;
-                for i,x in enumerate(G[lhs]):
-                    if rhs == x[0]:
-                        pos = i;
-                        break
-            if pos==-1: G[lhs].append([rhs, isNonT, freq])
-            else: G[lhs][pos][2] += freq
-        except KeyError: #first time in this place
-            Grammar.inversemap[rhs] = len(G[lhs])
-            G[lhs].append([rhs,isNonT,freq])
-        except IndexError:
-            print 'IndexERROR:', lhs, '--->', rhs, freq
-            for k,v in G.items(): print k, '=>', v
-            exit()
+            i = rhs_dict.index(rhs)
+            l = 0;
+            l += sum([rhs_dict[x][0] for x in rhs_dict.keys()[:i]])
+            r = l + rhs_dict[rhs][0]
+            return l, r   # range is [l,r), r not included rember
+        except ValueError:
+            print "Could not find ", lhs, rhs, "in G!"
+            return -1, -1
 
+    def get_rhs(self, lhs, pt):
+        rhs_dict = self.G[lhs]
+        t = 0
+        for r, v in rhs_dict.items():
+            t += v[0]
+            if t > pt: break
+        if t > rhs_dict['__total__']:
+            print "Could not Find: ", lhs, pt
+            return None, 0, TERMINAL
+        return r, v[0], v[1]
+
+    def update_grammar(self, G1=None, w=None):
+        if not G1:
+            G1 = self.scanner.get_parse_tree(w)
+        for lhs,rhs in G1:
+            self.G[lhs].update(rhs)
+
+    def fix_freq(self, pcfg):
+        for l,r_dict in self.G.items():
+            for r, v in r_dict.keys:
+                v[0] = pcfg.get_freq(l,r)
+        self.update_total_freq()
 
     # Completely messed up now
     def insert(self, w, freq):
@@ -257,43 +270,16 @@ class Grammar:
         #         self.addRule(p, W[i], 0, freq)
         # print 'insert: ', U
 
-    def addDotStarRules(self):
-        """
-        This is to support parsing all possible passwords. 
-        Artifical rules like, S -> L,S | D,S | Y,S
-        and L -> a|b|c|d..
-        D -> 1|3|4 etc
-        """
-        self.addRule('G', 'L,G', 1, MIN_COUNT-1);
-        self.addRule('G', 'D,G', 1, MIN_COUNT-1);
-        self.addRule('G', 'Y,G', 1, MIN_COUNT-1);
-        import string
-        for c in string.ascii_letters:
-            self.addRule('L', c, 0, MIN_COUNT-1 )
-        for d in string.digits:
-            self.addRule('D', d, 0, MIN_COUNT-1 )
-        for s in string.punctuation:
-            self.addRule('Y', s, 0, MIN_COUNT-1 )
-        #for e, s in self.scanner.M.rules.items():
-        #    self.addRule(s, e, 0, MIN_COUNT-1)
-        # mangling_rule={'a':'@', 's':'$', 'o':'0', 'i':'!'}
 
     def save(self, out_file):
-        #for rule in self.G:
-        #    self.G[rule].sort(key = lambda x: x[0])
         json.dump(self.G, out_file)
         
     def load(self, in_file):
-        self.G = json.load(open_(in_file))
-        # TODO - TOCHECK wheather required or not
-        # for rule in self.G:
-        #     for i,w in enumerate(self.G[rule]):
-        #         if w[0] != rule: 
-        #             inversemap[w[0]] = i
-                
-    # find the left most gegneration tree for a password
-    # TODO -  NOT impelemetned
-
+        self.G = json.load(open_(in_file), 
+                           object_pairs_hook=OrderedDict)
+        
+    def __eq__(self, o_g):
+        return self.G == o_g.G
 
     def __iter__(self):
         return self.G.iterator

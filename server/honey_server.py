@@ -28,7 +28,7 @@ b2a_base64 = lambda x: binascii.b2a_base64(x)[:-1]
 def hash_mp(mp):
     h = SHA256.new()
     h.update(mp)
-    return h.hexdigest()[:16]
+    return h.hexdigest()[:32]
 
 def do_crypto_setup():
     key = PBKDF1(PRIVATE_HONEY_ENC_KEY, PRIVATE_SALT, 16, 100, SHA256)
@@ -197,5 +197,8 @@ def get_domain_mapping():
     bearer_token  = request.form.get('token', '')
     return json.dumps(GetWebsiteMapping(username, bearer_token))
 
-if __name__ == "__main__":    
+if __name__ == "__main__":
+    import os
+    if not os.path.exists('honeyserver.db'):
+        db.create_all()
     app.run(debug=True)

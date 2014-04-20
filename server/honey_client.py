@@ -4,6 +4,9 @@ import binascii
 from Crypto.Hash import SHA256
 from urlparse import urlparse
 from publicsuffix import PublicSuffixList
+sys.path.append('../')
+from honey_vault import HoneyVault
+
 
 HONEY_SERVER_URL = "http://localhost:5000/"
 VAULT_FILE  = 'vault.db'
@@ -127,7 +130,23 @@ e.g. $ %s -addpass AwesomeS@la google.com 'FckingAwesome!'
     if len(args)<3:
         print h_string
         return ''
-    
+    mp = args[0]
+    domain_pw_map = {args[1] : args[2]}
+    hv = HoneyVault(VAULT_FILE, mp)
+    hv.add_password(domain_pw_map)
+    y = raw_input("""Check the following sample decoded password
+and make sure your master password is correct. Otherwise you might 
+accidentally spoile your whole vault. CAREFUL.
+SAMPLE PASSWORDS: %s
+Are all of the correct to the best of your knowledge! (y/n)""" % \
+                      ','.join(hv.get_sample_decoding())
+                  )    
+    if y.lower() == 'y':
+        hv.save()
+        print """Successfully saved your vault. 
+Now when you are sure the update is correct upload the vault to the 
+server. we are not doing automatically because I dont beleive myself"""
+
 
 def get_pass( *args ):
     h_string =  """
@@ -139,9 +158,9 @@ e.g. $ %s -addpass AwesomeS@la google.com
         print h_string
         return ''
     mp = args[0]
-    domain = hash_mp(args[1])
-    index = json.load(open(STATIC_DOMAIN_HASH_LIST)).get(domain, -1)
-    
+    hv = HoneyVault(VAULT_FILE, mp)
+    print hv.get_password([args[1]])
+
 
 def import_vault( *args ):
     h_string =  """
@@ -149,7 +168,7 @@ cmd: import existing vault, in given format
 $ %s -import <master-password> <vault_file>
 e.g. $ %s -import AwesomeS@la vault_file.csv
 vault file:
-# domain,username,password
+# domain,username?,password
 google.com,rahulc@gmail.com,abc234
 fb.com,rchatterjee,aadhf;123l
 """ % (sys.argv[0], sys.argv[0])
@@ -158,8 +177,24 @@ fb.com,rchatterjee,aadhf;123l
         return ''
     mp = args[0]
     vault_fl = args[1]
-    # index = json.load(open(STATIC_DOMAIN_HASH_LIST)).get(domain, -1)
-
+    g = lambda l: (l[0],l[-1])
+    domain_pw_map = dict([ g(a.strip().split()) 
+                           for a in open(vault_fl) if a[0] != '#'])
+    hv = HoneyVault(VAULT_FILE, mp)
+    hv.add_password(domain_pw_map)
+    y = raw_input("""Check the following sample decoded password
+and make sure your master password is correct. Otherwise you might 
+accidentally spoile your whole vault. CAREFUL. Ignore if this is the first time you are using this.
+SAMPLE PASSWORDS: %s
+Are all of the correct to the best of your knowledge! (y/n)""" % \
+                      ','.join(hv.get_sample_decoding())
+                  )    
+    if y.lower() == 'y':
+        hv.save()
+        print """Successfully saved your vault. 
+Now when you are sure the update is correct upload the vault to the 
+server. we are not doing automatically because I dont beleive myself"""
+    
 
 def export_vault( *args ):
     h_string =  """
@@ -177,7 +212,7 @@ e.g. $ %s -export AwesomeS@la
     mp = args[0]
     domain = hash_mp(get_exact_domain(args[1]))
     index = json.load(open(STATIC_DOMAIN_HASH_LIST)).get(domain, -1)
-
+    
     
 def gen_pass( *args ):
     h_string =  """
