@@ -1,12 +1,15 @@
 DAWG==0.7.2
 Flask==0.10.1
+Flask-SQLAlchemy==1.0
 Jinja2==2.7.2
 MarkupSafe==0.19
+SQLAlchemy==0.9.4
 Werkzeug==0.9.4
-argparse==1.1
+argparse==1.2.1
 ipython==1.1.0
 itsdangerous==0.24
 marisa-trie==0.6
+publicsuffix==1.0.5
 pyasn1==0.1.7
 pycrypto==2.6.1
 rsa==3.1.4

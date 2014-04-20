@@ -9,3 +9,4 @@ rockYouPasswords/
 test/
 *.db
 *.bin
+honey_venv/

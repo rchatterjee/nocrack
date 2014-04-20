@@ -10,21 +10,79 @@ from io import BytesIO
 from Crypto.Random import random
 import marisa_trie
 from collections import deque
-from scanner_helper import *
-from scanner import *
+from scanner_helper import GrammarStructure
+from scanner import Grammar, Scanner
+import honeyvault_config as hny_config
 
 # IDEA:  every genrule could be kept in a Trie.
 # DRAWBACK: it is unlikely that those words will share
 # much prefix of each other...:p
 
-
 class DTE:
+    def __init__(self, grammar=None):
+        self.G = grammar
+        if not self.G:
+            self.G = Grammar()
+            self.G.load(GRAMMAR_DIR+'/grammar.cfg')
+
+    def encode(self, lhs, rhs):
+        assert lhs in self.G
+        s, e  = self.G.get_freq_range(lhs, rhs)
+        return convert2group(random.randint(s, e),
+                             self.G[lhs]['__total__'])
+
+    def decode(self, lhs, pt):
+        assert lhs in self.G
+        return self.G.get_rhs(lhs, pt)
+
+    def encode_pw(self, pw):
+        code_g = [] #convert2group(0,1) for i in \
+                    #  range(hny_config.PASSWORD_LENGTH)])
+        T, W, U = self.G.parse_pw(pw)
+        rule = ','.join(T)
+        code_g.append(self.encode('G', rule))
+        for i,p in enumerate(T):
+            t=self.encode(p, W[i])
+            if t==-1: 
+                print "Sorry boss! iQuit!"
+                return Encode_spcl(m, grammar)
+            code_g.append( t )
+            # TODO - make it better with Capitalize, AllCaps, L33t etc
+            if W[i] != U[i]:
+                for c,d in zip(W[i], U[i]):
+                    code_g.append(self.encode(c,d))
+        # padd the encoding with some random numbers to make it 
+        # of size PASSWORD_LENGTH 
+        extra = hny_config.PASSWORD_LENGTH - len(code_g);
+        code_g.extend([convert2group(0,1) for x in range(extra)])
+        return code_g
+    
+    def decode_pw(self, P):
+        assert len(P) == hny_config.PASSWORD_LENGTH
+        iterp = iter(P)
+        plaintext = '';
+        stack = ['G']
+        while stack:
+            head = stack.pop()
+            rhs, freq, typ = self.decode(head, iterp.next())
+            if typ==NONTERMINAL:
+                arr = rhs.split(',')
+                arr.reverse()
+                stack.extend(arr)
+            else:
+                plaintext += rhs
+        
+    def __eq__(self, o_dte):
+        return self.G == o_dte.G
+
+
+class DTE_large(DTE):
     """
     encodes a rule
     """
-    def __init__(self):
-        self.g_struc = GrammarStructure()
+    def __init__(self, grammar=None):
         self.term_files = {}
+        self.g_struc = GrammarStructure()
         for k, f in self.g_struc.getTermFiles().items():
             sys.path.append(GRAMMAR_DIR)
             X = __import__('%s' % f)
@@ -33,9 +91,7 @@ class DTE:
                 'arr' : eval("X.%s"%k),
                 'trie_fl' : GRAMMAR_DIR+f+'.tri'
                 }
-        self.G = Grammar()
-        self.G.load(GRAMMAR_DIR+'/grammar.cfg')
-
+        super(DTE_large, self).__init__(grammar)
 
     @staticmethod
     def word2prob( w, T, A ):       
@@ -50,75 +106,90 @@ class DTE:
             return t + random.randint(0, (4294967295-t)/totalC) * totalC
 
     @staticmethod    
-    def prob2word( p, T, A, freq_also = False ):
+    def prob2word( p, T, A):
         i = getIndex(p, A)
         w = T.restore_key(i)
-        return w if not freq_also else w, A[i]
+        return w, A[i]
 
     def encode(self, lhs, rhs):
         if  lhs in self.term_files:
             return DTE.word2prob(rhs, self.term_files[lhs]['trie'],
-                             self.term_files[lhs]['arr'] )
-        assert lhs in self.G
-        rule_set = self.G[lhs][0]
-        freq_list= [ x[0] for x in self.G[lhs][1] ] # [[freq, type(N/T)]]
-        i = rule_set.index(rhs)
-        assert i>=0
-        S = sum( freq_list[:i] )
-        t = random.randint( S, S+freq_list[i] )
-        totalC = self.G[lhs][2]
-        return convert2group(t, totalC)
-    
-    def decode(self, lhs, prob, freq_also=False):
-        if  lhs in self.term_files:
-            w, f = DTE.prob2word(prob, 
-                                 self.term_files[lhs]['trie'],
-                                 self.term_files[lhs]['arr'], 
-                                 freq_also )
-            if freq_also:
-                return w, f, TERMINAL
-            else: 
-                return w, TERMINAL
-        
-        assert lhs in self.G
-        rule_set = self.G[lhs][0]
-        # print "KEYERROR Test:", self.G[lhs]
-        freq_list= [x[0] for x in self.G[lhs][1]]
-        freq_list.append( self.G[lhs][2] )
-        i = getIndex(prob, freq_list)
-        if freq_also:
-            return rule_set[i], freq_list[i], self.G[lhs][1][i][1]
-        else:
-            return rule_set[i], self.G[lhs][1][i][1]
+                                 self.term_files[lhs]['arr'] )
+        super(DTE_large, self).encode(lhs, rhs) 
 
+    def decode(self, lhs, pt):
+        if  lhs in self.term_files:
+            w, f = DTE.prob2word(pt, 
+                                 self.term_files[lhs]['trie'],
+                                 self.term_files[lhs]['arr'])
+            return w, f, TERMINAL
+        super(DTE_large, self).decode(lhs, pt) 
+        
     def get_freq(self, lhs, rhs):
         if lhs in self.term_files:
             try:
                 i = self.term_files[lhs]['trie'].key_id(unicode(rhs))
             except KeyError:
-                print "ERROR! Could not find '%s' in '%s'. Go debug!!" % ( rhs, self.term_files[lhs]['trie_fl'] )
+                print "ERROR! Could not find '%s' in '%s'. Go debug!!"\
+                    % ( rhs, self.term_files[lhs]['trie_fl'] )
                 return [-1, -1]
             if i<0: 
                 print "KeyError in get_freq1:", lhs, rhs
                 return -1, -1
             return [self.term_files[lhs]['arr'][i], TERMINAL]
         try:
-            i = self.G[lhs][0].index(rhs)
-            return self.G[lhs][1][i]
+            s, e = self.G.get_freq_range(lhs, rhs)
+            return e-s
         except ValueError: 
             print "ValueError in get_freq -- %s is not in %s:" % \
                 (rhs,self.G[lhs][0])
             return -1, -1
     
+    def encode_grammar(self, G):
+        # Encode sub-grammar
+        stack = ['G']
+        code_g = []
+        while stack:
+            head = stack.pop()
+            rule_dict = G[head]
+            t_set = []
+            t_set = list(set([ x for rhs,f in rule_dict.items() 
+                               for x in rhs.split(',') 
+                               if f[1] is NONTERMINAL ]))
+            t_set.reverse()
+            stack.extend(t_set)
+            n = len(rule)
+            code_g.append(convert2group(sum(VAULT_SIZE_TO_FREQ[:n]), 
+                                        VAULT_SIZE_TO_FREQ[-1]))
+            code_g.extend([self.encode(head, r) for r in rule.keys()])
+        return code_g
+
+    def decode_grammar(self, P):
+        G=Grammar()
+        iterp = iter(P)
+        stack = ['G']
+        while stack:
+            head = stack.pop()
+            p = iterp.next()
+            n = getIndex(p, VAULT_SIZE_TO_FREQ)
+            NonTlist = []
+            for x in range(n):
+                rhs, frq, typ = self.decode(head, iterp.next())
+                G.addRule_lite(head, rhs, freq, typ, True)
+                if typ == NONTERMINAL: 
+                    NonTlist.extend(r[0].split(','))
+                    
+            t_set = list(set(NonTlist))
+            t_set.reverse()
+            stack.extend(t_set)
+        return G
+
     def update_dte_for_vault(self, G):
         self.term_files_bak = self.term_files
         self.G_bak = self.G.G
         self.term_files = {}
         self.G.G = G;
-
-
-
-
+        
 
         
 def getVal( arr, val ):
@@ -197,7 +268,7 @@ def Encode_spcl( m, grammar ):
     return E;
 
 
-def Encode( m, scanner, dte ):
+def Encode(m, scanner, dte ):
     P, W, U = scanner.tokenize(m, True)
     E = []
     print P, W, U;
