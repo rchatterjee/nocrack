@@ -118,7 +118,7 @@ class Scanner:
             if not T: T = [w]
             # print 'TOkenize:', T
 
-        # Dumbest Grammar one can think of,. But just to complete the pipeline
+        # The Dumbest Grammar one can think of,. But just to complete the pipeline
         # will come an reiterate later
         # if len(T) > 5: 
         #     print "Say something, I am giving upon you:", w, T; 
@@ -158,6 +158,20 @@ class Scanner:
              s += len(p)
         return Tags[1:-1], T, U
 
+    def get_parse_tree(self, w):
+        T, W, U = self.tokenize(v, True)
+        rule = ','.join(T)
+        G = {}
+        G['G'] = rule
+        for (l,r) in zip(T,W):
+            try:
+                index = G[l][0].find(r)
+                if index<0: 
+                    G[l][0].append(r)
+                    G[l][1].append([0,TERMINAL])
+            except:
+                G[l] = [[r],[[0,TERMINAL]]]
+            
 class Grammar:
     inversemap = {}
     def __init__(self, config_fl=None, scanner=None):
