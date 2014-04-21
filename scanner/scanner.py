@@ -1,13 +1,16 @@
 #!/usr/bin/python
-
+import os, sys
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
 from dawg import IntDAWG
 from dawg import DAWG
- 
-import struct, json, bz2
-from helper import *
-from honeyvault_config import *
-from scanner_helper import *
+import struct, json, bz2, re
+from helper.helper import open_
+import honeyvault_config as hny_config
+from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
+from scanner_helper import Tweaker, GrammarStructure
 from collections import OrderedDict, defaultdict
+from pprint import pprint
 
 #--------------------------------------------------------------------------------
 class Scanner:
@@ -24,10 +27,11 @@ class Scanner:
         #self.date = Date()
         #self.standard_english = None;
         self.M = tweaker or Tweaker()
-        if not self.dawg and os.path.exists(DICTIONARY_DAWG):
+        if not self.dawg and \
+                os.path.exists(hny_config.DICTIONARY_DAWG):
             # print 'Using the old dicrionary already stored!'
             self.dawg = DAWG()
-            self.dawg.load(DICTIONARY_DAWG)
+            self.dawg.load(hny_config.DICTIONARY_DAWG)
         if not self.dawg:
             print """Oh My God!! You dont have the dictionary({DICTIONARY_DAWG}). \
                 I can't take it. Exiting!""".format(**locals())
@@ -164,52 +168,59 @@ class Scanner:
         return Tags[1:-1], T, U
 
     def get_parse_tree(self, w):
-        T, W, U = self.tokenize(v, True)
+        T, W, U = self.tokenize(w, True)
         rule = ','.join(T)
         G = defaultdict(dict)
         G['G'][rule] = [0,NONTERMINAL]
-        for l,r in zip(T,W):
-            G[l][r] = [0, NONTERMINAL]
-
+        for i,t in enumerate(T):
+            l = t
+            r1 = W[i]
+            r2 = U[i]
+            if r1 == r2:
+                G[l][r1] = [0, TERMINAL ]
+            else:
+                G[l][r1] = [0, NONTERMINAL ]
+                for c,d in zip(r1,r2):
+                    G[c][d] = [0, TERMINAL]
+                
         # TODO - make it better with Capitalization,
         # AllCaps, L33t etc.
-        for l,r in zip(W,U):
-            if l != r:
-                for c,d in zip(l,r):
-                    G[c][d] = [0, TERMINAL]
         return G
 
 #--------------------------------------------------------------------------------
 class Grammar:
-    inversemap = {}
     def __init__(self, config_fl=None, scanner=None):
         self.scanner = scanner if scanner else Scanner()
         self.grammar_structure = GrammarStructure().G
         self.G = defaultdict(OrderedDict)
-        for k,v in self.grammar_structure.items():
-            if len(v)!=1: 
-                self.G.update([(x, [0, (NONTERMINAL if x.isupper() 
-                                        else TERMINAL)
-                                    ]) 
-                               for x in v])
-
+        # for k,v in self.grammar_structure.items():
+        #     if len(v)!=1: 
+        #         self.G[k] = OrderedDict([(x, [0, (NONTERMINAL if x.isupper() 
+        #                                           else TERMINAL)
+        #                                       ]) 
+        #                                  for x in v])
+                
         # self.addDotStarRules();
         # TODO: make it better
-        from string import ascii_letters, digits, punctuation
-        for typ, characters in zip('LDY', [ascii_letters, digits, punctuation]): 
+        from string import ascii_lowercase, digits, punctuation
+        for typ, characters in zip('LDY', [ascii_lowercase, digits, punctuation]): 
             self.G[typ] = OrderedDict([(x, [MIN_COUNT-1, TERMINAL]) 
                                        for x in characters])
             self.G['G']['%s,G' % typ] = [MIN_COUNT-1, NONTERMINAL]
 
     def addRule_lite(self, lhs, rhs, freq, typ, 
                      ignore_addingfreq = False): # typ is NONTERMINAL or NERMINAL
-        self.G[lhs].setdefault(rhs, [0,typ])
-        if not ignore_addingfreq:
+        if ignore_addingfreq:
+            self.G[lhs].setdefault(rhs, [freq,typ])
+        else:
+            self.G[lhs].setdefault(rhs, [0,typ])
             self.G[lhs][rhs][0] += freq
             
     def update_total_freq(self):
         for lhs, rhs_dict in self.G.items():
-            rhs_dict['__total__'] = sum([x[0] for x in rhs_dict.values])
+            rhs_dict['__total__'] = sum([x[0]
+                                         for x in rhs_dict.values()
+                                         if type(x)==type([])])
 
     def parse_pw(self, pw):
         return self.scanner.tokenize(pw)
@@ -217,18 +228,21 @@ class Grammar:
     def get_freq_range(self, lhs, rhs):
         rhs_dict = self.G[lhs]
         try:
-            i = rhs_dict.index(rhs)
+            i = rhs_dict.keys().index(rhs)
             l = 0;
-            l += sum([rhs_dict[x][0] for x in rhs_dict.keys()[:i]])
+            l += sum([rhs_dict[x][0] 
+                      for x in rhs_dict.keys()[:i]])
             r = l + rhs_dict[rhs][0]
             return l, r   # range is [l,r), r not included rember
         except ValueError:
             print "Could not find ", lhs, rhs, "in G!"
+            print rhs_dict
             return -1, -1
 
     def get_rhs(self, lhs, pt):
         rhs_dict = self.G[lhs]
         t = 0
+        pt %= rhs_dict['__total__']
         for r, v in rhs_dict.items():
             t += v[0]
             if t > pt: break
@@ -237,16 +251,23 @@ class Grammar:
             return None, 0, TERMINAL
         return r, v[0], v[1]
 
-    def update_grammar(self, G1=None, w=None):
+    def update_grammar(self, G1=None, pw=None):
+        print "Updating with", pw 
         if not G1:
-            G1 = self.scanner.get_parse_tree(w)
-        for lhs,rhs in G1:
+            G1 = self.scanner.get_parse_tree(pw)
+        for lhs,rhs in G1.items():
             self.G[lhs].update(rhs)
+            if '__total__' in self.G[lhs]:
+                del self.G[lhs]['__total__']
+            self.G[lhs]['__total__'] = \
+                sum([x[0] for x in self.G[lhs].values()])
 
     def fix_freq(self, pcfg):
         for l,r_dict in self.G.items():
-            for r, v in r_dict.keys:
-                v[0] = pcfg.get_freq(l,r)
+            for r, v in r_dict.items():
+                if r != '__total__':
+                    v[0] = pcfg.get_freq(l,r)
+        print "Fixing frequencies:", '*'*20
         self.update_total_freq()
 
     # Completely messed up now
@@ -256,6 +277,11 @@ class Grammar:
         # Improve the grammar
         rule = ','.join(P)
         self.addRule_lite('G', rule, freq, NONTERMINAL)
+        for l,r in zip(W,U):
+            if l != r:
+                for c,d in zip(l,r):
+                    self.addRule_lite(c, d, freq, TERMINAL)
+
         # print w, freq, P, W, U
         # S -> P
         # self.addRule('S', ','.join(P), 1, freq)
@@ -291,7 +317,11 @@ class Grammar:
         return x in self.G
     
     def __str__(self):
-        return "Grammar: " + str(self.G)
+        s = "Grammar: "
+        s += '\n'.join('%s -> %s' %(k, str(v)) 
+                  for k, v in self.G.items()
+                       if k not in ['L', 'D', 'Y'])
+        return s
 
     def findPath(self, w):
         # scanner cannont be null,
