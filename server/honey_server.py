@@ -7,9 +7,10 @@ from Crypto.Random import random
 from Crypto.Util import Counter
 from Crypto import Random
 import binascii
-import re, datetime, sys, json
-sys.path.append('../')
-from honeyvault_config import *
+import re, datetime, sys, os, json
+BASE_DIR = os.getcwd()  
+sys.path.append(BASE_DIR)
+from honeyvault_config import SECURITY_PARAM, HONEY_VAULT_ENCODING_SIZE, SECURITY_PARAM_IN_BASE64
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///honeyserver.db'
@@ -22,6 +23,7 @@ EMAIL_REG = re.compile( r"""
 @(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?
 """, re.MULTILINE )
 
+DEBUG = 1   # set it to 0 in production
 
 b2a_base64 = lambda x: binascii.b2a_base64(x)[:-1]
 
@@ -73,7 +75,7 @@ class User(db.Model):
     salt_pub = db.Column(db.String(SECURITY_PARAM_IN_BASE64), nullable=False)
     salt_sec = db.Column(db.String(SECURITY_PARAM_IN_BASE64), nullable=False)
     bearer_token = db.Column(db.String(SECURITY_PARAM_IN_BASE64), nullable=False)
-    vault_c  = db.Column(db.String(int(HONEY_VAULT_ENCODING_SIZE*1.5)))
+    vault_c  = db.Column(db.String(int(HONEY_VAULT_ENCODING_SIZE*6)))
             
     def __init__(self, username):
         self.username = username
@@ -123,20 +125,20 @@ def ValidateEmail(username, email_token):
     else:
         return "Wrong Token"
 
-def WriteVault(username, bearer_token, vault):
+def WriteVault(username, bearer_token, vault_c):
     u = authUser(username, bearer_token)
     if u:
         u.vault_c = vault_c
         u.save()
         return "Done!"
-    return "Write is not allowed!"
+    return "ERROR: Write is not allowed!"
 
 # mp_hash = hash(mp, slat_pub)
 def ReadVault(username, bearer_token):
     u = authUser(username, bearer_token)
     if u:
         return u.vault_c
-    return 'Read is not allowed!'
+    return 'ERROR: Read is not allowed!'
 
 def RefreshToken(username, bearer_token):
     u = authUser(username, bearer_token)
@@ -175,9 +177,9 @@ def validate_email():
 @app.route('/write', methods=['POST'])
 def write_vault():
     username = request.form.get('username', '')
-    bearer_token = binascii.a2b_base64(request.form.get('token', ''))
+    bearer_token = request.form.get('token', '')
     vault_c  = request.form.get('vault_c', '')
-    return WriteVault(username, token, mp_hash, vault_c)
+    return WriteVault(username, bearer_token, vault_c)
 
 @app.route('/read', methods=['POST'])
 def read_vault():
