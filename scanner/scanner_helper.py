@@ -5,11 +5,13 @@ class GrammarStructure:
     g_reg = r'^(?P<lhs>[A-Z]+)\s+->(?P<rhs>.*)$'
     G = {}
 
-    def __init__(self, g_file='sample_grammarstructure.cfg'):
+    def __init__(self, g_file='static/sample_grammarstructure.cfg'):
         for l in open(g_file):
             l = l.strip()
             m = re.match(self.g_reg, l)
-            rhs = ['xx' if re.match(r'None', y) else y.strip().strip("'") for y in  m.group('rhs').split('|')]
+            rhs = ['xx' if re.match(r'None', y) 
+                   else y.strip().strip("'") 
+                   for y in  m.group('rhs').split('|')]
             try:
                 self.G[m.group('lhs')].extend(rhs)
             except KeyError:
@@ -27,8 +29,11 @@ class GrammarStructure:
 
     def to_json(self):
         return json.dumps(self.G)
+
     def __str__(self):
-        return '\n'.join(['%s -> %s' % (lhs, ' | '.join(rhs)) for lhs, rhs in self.G.items()])
+        return '\n'.join(['%s -> %s' % \
+                              (lhs, ' | '.join(rhs)) 
+                          for lhs, rhs in self.G.items()])
 
 
 class Token:

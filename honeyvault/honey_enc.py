@@ -6,24 +6,28 @@ it needs a PCFG in the following format.
 """
 
 import sys, os, math, struct, bz2, resource
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
 from io import BytesIO
 from Crypto.Random import random
 import marisa_trie
 from collections import deque
-from scanner_helper import GrammarStructure
-from scanner import Grammar, Scanner
+from scanner.scanner_helper import GrammarStructure
+from scanner.scanner import Scanner, Grammar
 import honeyvault_config as hny_config
-
+from helper.helper import getIndex, convert2group
+from helper.vault_dist import VaultDistribution
+from honeyvault_config import NONTERMINAL, TERMINAL
 # IDEA:  every genrule could be kept in a Trie.
 # DRAWBACK: it is unlikely that those words will share
 # much prefix of each other...:p
 
-class DTE:
+class DTE(object):
     def __init__(self, grammar=None):
         self.G = grammar
         if not self.G:
             self.G = Grammar()
-            self.G.load(GRAMMAR_DIR+'/grammar.cfg')
+            self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
         assert lhs in self.G
@@ -65,13 +69,14 @@ class DTE:
         while stack:
             head = stack.pop()
             rhs, freq, typ = self.decode(head, iterp.next())
-            if typ==NONTERMINAL:
+            if typ == NONTERMINAL:
                 arr = rhs.split(',')
                 arr.reverse()
                 stack.extend(arr)
             else:
                 plaintext += rhs
-        
+        return plaintext
+
     def __eq__(self, o_dte):
         return self.G == o_dte.G
 
@@ -84,12 +89,12 @@ class DTE_large(DTE):
         self.term_files = {}
         self.g_struc = GrammarStructure()
         for k, f in self.g_struc.getTermFiles().items():
-            sys.path.append(GRAMMAR_DIR)
+            sys.path.append(hny_config.GRAMMAR_DIR)
             X = __import__('%s' % f)
             self.term_files[k] = {
-                'trie' : marisa_trie.Trie().load(GRAMMAR_DIR+f+'.tri'),
+                'trie' : marisa_trie.Trie().load(hny_config.GRAMMAR_DIR+f+'.tri'),
                 'arr' : eval("X.%s"%k),
-                'trie_fl' : GRAMMAR_DIR+f+'.tri'
+                'trie_fl' : hny_config.GRAMMAR_DIR+f+'.tri'
                 }
         super(DTE_large, self).__init__(grammar)
 
@@ -103,7 +108,7 @@ class DTE_large(DTE):
             S = sum( A[:i] )
             t = random.randint( S, S+A[i] )
             totalC = A[-1]
-            return t + random.randint(0, (4294967295-t)/totalC) * totalC
+            return convert2group(t, totalC)
 
     @staticmethod    
     def prob2word( p, T, A):
@@ -113,17 +118,17 @@ class DTE_large(DTE):
 
     def encode(self, lhs, rhs):
         if  lhs in self.term_files:
-            return DTE.word2prob(rhs, self.term_files[lhs]['trie'],
+            return self.word2prob(rhs, self.term_files[lhs]['trie'],
                                  self.term_files[lhs]['arr'] )
-        super(DTE_large, self).encode(lhs, rhs) 
+        return super(DTE_large, self).encode(lhs, rhs) 
 
     def decode(self, lhs, pt):
         if  lhs in self.term_files:
-            w, f = DTE.prob2word(pt, 
+            w, f = self.prob2word(pt, 
                                  self.term_files[lhs]['trie'],
                                  self.term_files[lhs]['arr'])
             return w, f, TERMINAL
-        super(DTE_large, self).decode(lhs, pt) 
+        return super(DTE_large, self).decode(lhs, pt) 
         
     def get_freq(self, lhs, rhs):
         if lhs in self.term_files:
@@ -136,7 +141,7 @@ class DTE_large(DTE):
             if i<0: 
                 print "KeyError in get_freq1:", lhs, rhs
                 return -1, -1
-            return [self.term_files[lhs]['arr'][i], TERMINAL]
+            return self.term_files[lhs]['arr'][i]
         try:
             s, e = self.G.get_freq_range(lhs, rhs)
             return e-s
@@ -147,41 +152,54 @@ class DTE_large(DTE):
     
     def encode_grammar(self, G):
         # Encode sub-grammar
+        vd = VaultDistribution()
         stack = ['G']
         code_g = []
+        done = set()
         while stack:
             head = stack.pop()
+            done.update(head)
             rule_dict = G[head]
             t_set = []
-            t_set = list(set([ x for rhs,f in rule_dict.items() 
+            t_set = list(set([ x for rhs, f in rule_dict.items() 
                                for x in rhs.split(',') 
-                               if f[1] is NONTERMINAL ]))
+                               if rhs != '__total__' and \
+                                   f[1] == NONTERMINAL]) - done)
             t_set.reverse()
             stack.extend(t_set)
-            n = len(rule)
-            code_g.append(convert2group(sum(VAULT_SIZE_TO_FREQ[:n]), 
-                                        VAULT_SIZE_TO_FREQ[-1]))
-            code_g.extend([self.encode(head, r) for r in rule.keys()])
+            n = len(rule_dict.keys())-1
+            code_g.append(vd.encode_vault_size(n))
+            print "Encoding:", n, vd.decode_vault_size(code_g[-1])
+            print "Encoding", '\n'.join(['%s --> %s' %(head, r) 
+                                         for r in rule_dict.keys()])
+            code_g.extend([self.encode(head, r) 
+                           for r in rule_dict.keys()
+                           if r != '__total__'])
+        extra = hny_config.HONEY_VAULT_GRAMMAR_SIZE - len(code_g);
+        code_g.extend([convert2group(0,1) for x in range(extra)])     
         return code_g
 
     def decode_grammar(self, P):
         G=Grammar()
+        vd = VaultDistribution()
         iterp = iter(P)
         stack = ['G']
         while stack:
             head = stack.pop()
             p = iterp.next()
-            n = getIndex(p, VAULT_SIZE_TO_FREQ)
+            n = vd.decode_vault_size(p)
             NonTlist = []
             for x in range(n):
-                rhs, frq, typ = self.decode(head, iterp.next())
+                rhs, freq, typ = self.decode(head, iterp.next())
+                print "Decoding:", head, '==>', rhs
                 G.addRule_lite(head, rhs, freq, typ, True)
                 if typ == NONTERMINAL: 
-                    NonTlist.extend(r[0].split(','))
+                    NonTlist.extend(rhs.split(','))
                     
             t_set = list(set(NonTlist))
             t_set.reverse()
             stack.extend(t_set)
+        G.update_total_freq()
         return G
 
     def update_dte_for_vault(self, G):

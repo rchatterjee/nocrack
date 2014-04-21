@@ -1,5 +1,8 @@
+import os, sys, json
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
 from honey_enc import DTE, DTE_large
-from scanner import Grammar, Scanner
+from scanner.scanner import Grammar, Scanner
 import honeyvault_config as hny_config
 #from buildPCFG import *
 from Crypto.Cipher import AES
@@ -8,11 +11,14 @@ from Crypto.Protocol.KDF import PBKDF1
 from Crypto.Random import random
 from Crypto.Util import Counter
 from Crypto import Random
-import copy
-from helper import convert2group
+import copy, struct
+from helper.helper import convert2group, open_, getIndex
+from helper.vault_dist import VaultDistribution
+from collections import OrderedDict
+from array import array
 
 rnd_source = Random.new()
-
+MAX_INT = hny_config.MAX_INT
 #-------------------------------------------------------------------------------
 def do_crypto_setup(mp, salt = b'madhubala'):
     key = PBKDF1(mp, salt, 16, 100, SHA256)
@@ -31,13 +37,14 @@ class HoneyVault:
     def __init__(self, vault_fl, mp):
         self.pcfg = DTE_large()
         self.scanner = Scanner() # default scanner
-        domain_hash_map_fl = domain_hash_map if domain_hash_map \
-            else 'server/static_domain_hashes.txt'
+        domain_hash_map_fl = hny_config.STATIC_DOMAIN_HASH_LIST
         self.domain_hash_map = json.load(open_(domain_hash_map_fl))
         self.vault_fl = vault_fl
+        self.mp = mp
         self.initialize_vault(mp)
-        self.dte = DTE(self.PCFG.decode_grammar(self.H))
-
+        self.dte = DTE(self.pcfg.decode_grammar(self.H))
+        print self.dte.G
+        
     def get_domain_index(self, d):
         h = SHA256.new()
         h.update(d)
@@ -49,33 +56,47 @@ class HoneyVault:
             x = struct.unpack('8I', h.digest())[0]
             return self.s1 + x % self.s2
 
-    def initialize_vault(self):
-        if not os.path.exist(self.vault_fl):
+    def initialize_vault(self, mp):
+        vd = VaultDistribution()
+        if not os.path.exists(self.vault_fl):
             self.H = [convert2group(0,1) 
                       for x in range(self.s_g)]
-            self.S = [convert2group(0,1) 
+            self.S = [[convert2group(0,1) 
+                       for i in range(hny_config.PASSWORD_LENGTH)] 
                       for x in range(self.s)]
-            self.H[0] = hny_config.VAULT_SIZE_TO_FREQ[0]
-            self.salt = rnd_source.read(size=16)
-            self.save()
+            self.H[0] = vd.encode_vault_size(0)
+            self.salt = rnd_source.read(8)
+            self.save(mp)
         else:
-            self.load()
+            self.load(mp)
 
     def add_password(self, domain_pw_map):
         nG = copy.deepcopy(self.dte.G)
         for p in domain_pw_map.values(): 
-            nG.update(p)
+            nG.update_grammar(pw=p)
         nG.fix_freq(self.pcfg)
         ndte = DTE(nG)
-        if ndte != DTE:
+        if ndte != self.dte:
             # if new dte is different then 
             for i, p in enumerate(self.S):
-                self.S[i] = ndte.encode(
-                    self.dte.decode_pw(self.S[i]))
-        for d,p in domain_pw_map:
+                pw = self.dte.decode_pw(self.S[i])
+                self.S[i] = ndte.encode_pw(pw)
+            self.H = self.pcfg.encode_grammar(nG)
+            G_ = self.pcfg.decode_grammar(self.H)
+            print "-"*50
+            print "Original: ", nG, '\n', '='*50
+            print "After Decoding:", G_
+            exit(0)
+            assert G_ == nG
+        for d,p in domain_pw_map.items():
             self.S[ self.get_domain_index(d) ] = \
-                self.dte.encode_pw(p)
+                ndte.encode_pw(p)
+            assert ndte.decode_pw(self.S[self.get_domain_index(d)]) ==\
+                p
+        print "New Grammar:", nG
+        self.dte = ndte
 
+        
     def get_password(self, domain_list):
         pw_list = [self.dte.decode_pw(
                 self.S[self.get_domain_index(d)])
@@ -89,145 +110,38 @@ class HoneyVault:
         """
         return [self.dte.decode_pw(self.S[i]) for i in self.sample]
 
-    def save(self):
+    def save(self, mp=None):
+        if not mp:
+            mp = self.mp
         with open(self.vault_fl, 'wb') as fvault:
             fvault.write(self.salt)
-            arr = self.H
-            for a in self.S:
-                arr.extend(a) 
-            assert len(arr) == hny_config.HONEY_VAULT_ENCODING_SIZE
-            
+            buf = self.H[:]
+            for i, a in enumerate(self.S):
+                buf.extend(a)
             aes = do_crypto_setup(mp, self.salt)
             fvault.write(aes.encrypt(
-                    struct.pack('!%sI' % len(arr), arr)))
+                    struct.pack('!%sI' % \
+                                    hny_config.HONEY_VAULT_ENCODING_SIZE, 
+                                *buf))
+                         )
 
     def load(self, mp):
-        with open(vault_fl, 'rb') as fvault:
-            self.salt = fvault.read(16)
+        with open(self.vault_fl, 'rb') as fvault:
+            self.salt = fvault.read(8)
             aes = do_crypto_setup(mp, self.salt)
-            buf = aes.decrypt(self.fvault.read())
-            self.H, t_s = \
-                struct.unpack('!%(s_g)sI%(s)sI' % self, buf)
+            buf = aes.decrypt(fvault.read())
+            t_s = struct.unpack( \
+                '!%sI' % (hny_config.HONEY_VAULT_ENCODING_SIZE),
+                buf)
+            self.H = t_s[:hny_config.HONEY_VAULT_GRAMMAR_SIZE]
+            t_s = t_s[hny_config.HONEY_VAULT_GRAMMAR_SIZE:]
             self.S = [t_s[i*hny_config.PASSWORD_LENGTH:\
                               (i+1)*hny_config.PASSWORD_LENGTH] 
                       for i in range(self.s)]
+            # print '\n'.join(["%s" % str(a[:10]) for a in self.S])
 
 
-
-
-
-def vault_encode(vault, mp):
-    #print vault
-    S = Scanner()
-    dte = DTE()
-    G = Grammar()
-    G.G = {}
-
-    # sub-grammar generation
-    for v in set(vault): # bring in Vault distribution
-        T, W, U = S.tokenize(v, True)
-        rule = ','.join(T)
-        f = dte.get_freq('G', rule)
-        G.addRule_lite('G', rule, f[0], f[1], True )
-        for (l,r) in zip(T,W):
-            f = dte.get_freq(l, r)
-            G.addRule_lite(l, r, f[0], f[1], True )
-
-
-    # Encode sub-grammar
-    stack = ['G']
-    code_g = []
-    while stack:
-        head = stack.pop()
-        rule = G[head][0]
-        t_set = []
-        t_set = list(set([ x for i,r in enumerate(rule) 
-                           for x in r.split(',') 
-                           if G[head][1][i][1] is NONTERMINAL ]))
-        t_set.reverse()
-        stack.extend(t_set)
-        n = len(rule)
-        code_g.append(convert2group(sum(VAULT_SIZE_TO_FREQ[:n]), 
-                                    VAULT_SIZE_TO_FREQ[-1]))
-        code_g.extend([dte.encode(head, r) for r in rule])
-        
-
-    # reset the dte and use the subgrammar for subsequent operations
-    dte.update_dte_for_vault(G)
-    
-    # we have to publish the vault size some where in the encoding.
-    # n = len(vault)
-    # code_g.append(convert2group(n, MAX_VAULT_SIZE)) # this is public info
-
-    # encode every password in the vault using the newly generated sub-grammar
-    for v in vault: # bring in Vault distribution
-        T, W, U = S.tokenize(v, True)
-        rule = ','.join(T)
-        code_g.append(dte.encode('G', rule))
-        for i,p in enumerate(T):
-            t=dte.encode(p, W[i])
-            if t==-1: 
-                print "Sorry boss! iQuit!"
-                exit(0)
-                # return Encode_spcl(m, grammar)
-            code_g.append( t )
-
-    # padd the encoding with some random numbers to make it of size PASSWORD_LENGTH 
-    if PASSWORD_LENGTH>0:
-        extra = PASSWORD_LENGTH - len(code_g);
-        code_g.extend( [ convert2group(0,1) for x in range(extra) ] )
-
-    # pack the 'integers' into a struct
-    c_struct = struct.pack('%sI' % len(code_g), *code_g )
-    return c_struct
-
-
-def vault_decode(cipher, mp, vault_size):
-    dte = DTE()
-    t = len( cipher );
-    P = struct.unpack('%sI'%(t/4), cipher )
-
-    # first decode the sub-grammar part from the large grammar
-    G=Grammar()
-    G.G = {}
-    iterp = iter(P)
-    stack = ['G']
-    while stack:
-        head = stack.pop()
-        p = iterp.next()
-        n = getIndex(p, VAULT_SIZE_TO_FREQ)
-        #print p, p%VAULT_SIZE_TO_FREQ[-1], VAULT_SIZE_TO_FREQ
-        NonTlist = []
-        for x in range(n):
-            r = dte.decode(head, iterp.next(), freq_also=True)
-            G.addRule_lite(head, r[0], r[1], r[2], True)
-            if r[2]==NONTERMINAL: NonTlist.extend(r[0].split(','))
-            # print 'Grammar:', G
-        t_set = list(set(NonTlist))
-        t_set.reverse()
-        stack.extend(t_set)
-
-    # decode every password in order using the newly generated sub-grammar
-    #print "DecodedGrammar", G
-    dte.update_dte_for_vault(G)
-    pass_vault = []
-    for i in range(vault_size):
-        plaintext = '';
-        stack = ['G']
-        while stack:
-            head = stack.pop()
-            g = dte.decode(head, iterp.next())
-            if g[1]==NONTERMINAL:
-                arr = g[0].split(',')
-                arr.reverse()
-                stack.extend(arr)
-            else:
-                plaintext += g[0]
-        pass_vault.append(plaintext)
-    return pass_vault;
-
-                           
-
+#----------------------------------------------------------------------
 
 def testRandomDecoding(vault_cipher, n):
     print "Trying to randomly decrypt:"
