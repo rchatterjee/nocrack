@@ -234,7 +234,10 @@ e.g. $ %s -addpass AwesomeS@la google.com
     if len(args)<2:
         print h_string
         return ''
-
+    mp = args[0]
+    domain_list = [args[1]]
+    hv = HoneyVault(VAULT_FILE, mp)
+    return hv.gen_password(mp, domain_list)
 
 def default( *args ):
     print '\n'.join("%s - %s" % (k,v) for k,v in command_func_map.items())
