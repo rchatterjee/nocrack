@@ -36,6 +36,8 @@ class DTE(object):
                              self.G[lhs]['__total__'])
 
     def decode(self, lhs, pt):
+        if not lhs or lhs not in self.G:
+            return '', 0, TERMINAL
         assert lhs in self.G
         return self.G.get_rhs(lhs, pt)
 
@@ -49,7 +51,7 @@ class DTE(object):
             t=self.encode(p, W[i])
             if t==-1: 
                 print "Sorry boss! iQuit!"
-                return Encode_spcl(m, grammar)
+                return Encode_spcl(pw, grammar)
             code_g.append( t )
             # TODO - make it better with Capitalize, AllCaps, L33t etc
             if W[i] != U[i]:
@@ -68,6 +70,7 @@ class DTE(object):
         stack = ['G']
         while stack:
             head = stack.pop()
+            print head, stack, plaintext
             rhs, freq, typ = self.decode(head, iterp.next())
             if typ == NONTERMINAL:
                 arr = rhs.split(',')
@@ -137,8 +140,10 @@ class DTE_large(DTE):
             except KeyError:
                 print "ERROR! Could not find '%s' in '%s'. Go debug!!"\
                     % ( rhs, self.term_files[lhs]['trie_fl'] )
-                return [-1, -1]
-            if i<0: 
+                print self.term_files[lhs]['trie'].keys()
+                exit(0)
+                return -1
+            if i<0:
                 print "KeyError in get_freq1:", lhs, rhs
                 return -1, -1
             return self.term_files[lhs]['arr'][i]
@@ -148,30 +153,34 @@ class DTE_large(DTE):
         except ValueError: 
             print "ValueError in get_freq -- %s is not in %s:" % \
                 (rhs,self.G[lhs][0])
-            return -1, -1
+            return -1
     
     def encode_grammar(self, G):
         # Encode sub-grammar
         vd = VaultDistribution()
         stack = ['G']
         code_g = []
-        done = set()
+        done = []
         while stack:
             head = stack.pop()
-            done.update(head)
+            assert head not in done
+            done.append(head)
             rule_dict = G[head]
             t_set = []
-            t_set = list(set([ x for rhs, f in rule_dict.items() 
-                               for x in rhs.split(',') 
-                               if rhs != '__total__' and \
-                                   f[1] == NONTERMINAL]) - done)
+            for rhs, f in rule_dict.items():
+                if rhs != '__total__' and f[1] == NONTERMINAL:
+                    for x in rhs.split(','):
+                        if x not in done and x not in t_set and \
+                                x not in stack:
+                            t_set.append(x)
             t_set.reverse()
             stack.extend(t_set)
             n = len(rule_dict.keys())-1
             code_g.append(vd.encode_vault_size(n))
-            print "Encoding:", n, vd.decode_vault_size(code_g[-1])
-            print "Encoding", '\n'.join(['%s --> %s' %(head, r) 
-                                         for r in rule_dict.keys()])
+            print "RuleSizeEncoding:", head, n
+            assert n == vd.decode_vault_size(code_g[-1])
+            #print "Encoding", '\n'.join(['%s --> %s' %(head, r) 
+            #                             for r in rule_dict.keys()])
             code_g.extend([self.encode(head, r) 
                            for r in rule_dict.keys()
                            if r != '__total__'])
@@ -180,27 +189,32 @@ class DTE_large(DTE):
         return code_g
 
     def decode_grammar(self, P):
-        G=Grammar()
+        g=Grammar(Empty=True)
         vd = VaultDistribution()
         iterp = iter(P)
         stack = ['G']
+        done = []
         while stack:
             head = stack.pop()
+            assert head not in done
+            done.append(head)
             p = iterp.next()
             n = vd.decode_vault_size(p)
-            NonTlist = []
+            print "RuleSizeDecoding:", head, n
+            t_set = []
             for x in range(n):
                 rhs, freq, typ = self.decode(head, iterp.next())
-                print "Decoding:", head, '==>', rhs
-                G.addRule_lite(head, rhs, freq, typ, True)
-                if typ == NONTERMINAL: 
-                    NonTlist.extend(rhs.split(','))
-                    
-            t_set = list(set(NonTlist))
+                # print "Decoding:", head, '==>', rhs
+                g.addRule_lite(head, rhs, freq, typ, True)
+                if rhs != '__totoal__' and typ == NONTERMINAL:
+                    for x in rhs.split(','):
+                        if x not in done and x not in t_set and \
+                                x not in stack:
+                            t_set.append(x)
             t_set.reverse()
             stack.extend(t_set)
-        G.update_total_freq()
-        return G
+        g.update_total_freq()
+        return g
 
     def update_dte_for_vault(self, G):
         self.term_files_bak = self.term_files

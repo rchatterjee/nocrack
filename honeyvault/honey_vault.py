@@ -80,19 +80,20 @@ class HoneyVault:
             # if new dte is different then 
             for i, p in enumerate(self.S):
                 pw = self.dte.decode_pw(self.S[i])
+                if not pw: continue   # TODO SECURITY
                 self.S[i] = ndte.encode_pw(pw)
             self.H = self.pcfg.encode_grammar(nG)
             G_ = self.pcfg.decode_grammar(self.H)
             print "-"*50
             print "Original: ", nG, '\n', '='*50
             print "After Decoding:", G_
-            exit(0)
             assert G_ == nG
         for d,p in domain_pw_map.items():
-            self.S[ self.get_domain_index(d) ] = \
-                ndte.encode_pw(p)
-            assert ndte.decode_pw(self.S[self.get_domain_index(d)]) ==\
-                p
+            self.S[self.get_domain_index(d)] = ndte.encode_pw(p)
+            # DEBUG
+            after_decoding = ndte.decode_pw(self.S[self.get_domain_index(d)])
+            print "Original:", p, "------\tAfterDecodign", after_decoding
+            assert  after_decoding == p
         print "New Grammar:", nG
         self.dte = ndte
 
