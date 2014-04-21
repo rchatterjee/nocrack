@@ -10,3 +10,4 @@ test/
 *.db
 *.bin
 honey_venv/
+static/token

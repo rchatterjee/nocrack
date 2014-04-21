@@ -11,6 +11,7 @@ from honeyvault.honey_vault import HoneyVault
 HONEY_SERVER_URL = "http://localhost:5000/"
 VAULT_FILE  = 'static/vault.db'
 STATIC_DOMAIN_HASH_LIST = 'static_domain_hashes.txt'
+b2a_base64 = lambda x: binascii.b2a_base64(x)[:-1]
 
 def create_request(sub_url, data):
     return urllib2.Request(HONEY_SERVER_URL+sub_url,
@@ -18,8 +19,11 @@ def create_request(sub_url, data):
 
 def get_exact_domain( url ):
     u = urlparse(url)
+    h = u.hostname
+    if not h:
+        h = url
     psl = PublicSuffixList()
-    return psl.get_public_suffix(u)
+    return psl.get_public_suffix(h)
 
 def hash_mp(mp):
     h = SHA256.new()
@@ -68,8 +72,10 @@ e.g. $ %s -write badger@honey.com 'ThisIsTheToken007+3lL='
         return ''
     data = {'username' : args[0],
             'token' : args[1].strip("'"),
-            'vault_c' : open(args[2]).read()
+            'vault_c' : b2a_base64(open(args[2]).read())
             }
+    print data['token']
+    print data['vault_c'][:10]
     req = create_request('write', data)
     return urllib2.urlopen(req).read()
 
@@ -87,7 +93,12 @@ e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
             'token' : args[1].strip("'"),
             }
     req = create_request('read', data)
-    return urllib2.urlopen(req).read()
+    d = urllib2.urlopen(req).read()
+    if not d.startswith('ERROR'):
+        open(VAULT_FILE, 'wb').write(binascii.a2b_base64(d))
+        return "Saved in %s" % VAULT_FILE
+    else:
+        return d
 
 def refresh( *args ):    
     h_string =  """
@@ -131,7 +142,7 @@ e.g. $ %s -addpass AwesomeS@la google.com 'FckingAwesome!'
         print h_string
         return ''
     mp = args[0]
-    domain_pw_map = {args[1] : args[2]}
+    domain_pw_map = {get_exact_domain(args[1]) : args[2]}
     hv = HoneyVault(VAULT_FILE, mp)
     hv.add_password(domain_pw_map)
     y = raw_input("""Check the following sample decoded password
@@ -159,7 +170,7 @@ e.g. $ %s -addpass AwesomeS@la google.com
         return ''
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
-    return hv.get_password([args[1]])
+    return hv.get_password([get_exact_domain(args[1])])
 
 
 def import_vault( *args ):
