@@ -1,7 +1,13 @@
 #!/usr/bin/python
 
-from scanner  import *
-import csv
+import csv, sys, os, re, bz2
+from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
+from scanner.scanner_helper import GrammarStructure
+from scanner.scanner import Scanner, Grammar
+from helper.helper import open_
+import resource  # For checking memory usage
+import marisa_trie
+
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]
 # ['S2'] -> [('!!',0,12),('$%',0,23), .. ]
@@ -34,7 +40,8 @@ def buildpcfg(passwd_dictionary):
     out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg'
     for n, line in enumerate(open_(passwd_dictionary)):
         if n>resource_tracker:
-            r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            r = MEMLIMMIT*1024 - \
+                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
             print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n
             if r < 0:
                 print '''
@@ -55,7 +62,7 @@ Lines processed, {0:d}
             w.decode('ascii')
         except UnicodeDecodeError:
             continue    # not ascii hence return
-        if c < MIN_COUNT : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+        if c < MIN_COUNT*20 : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
             print "Word frequency dropped to %d for %s" % (c, w), n
             break  # Careful!!!
         G.insert(w, c)
@@ -64,6 +71,7 @@ Lines processed, {0:d}
         
     # TODO
     #push_DotStar_IntoGrammar( grammar );
+    G.update_total_freq()
     G.save(bz2.BZ2File(out_grammar_fl, 'w'))
     #marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
     return G
@@ -83,7 +91,7 @@ def breakwordsintotokens(passwd_dictionary):
     Arr = {}
     for k in G_out_files.keys():
         Arr[k] = dict()
-    out_file_name = 'data/'+basename(passwd_dictionary).split('.')[0]+'_out.tar.gz'
+    out_file_name = 'data/'+os.path.basename(passwd_dictionary).split('.')[0]+'_out.tar.gz'
     print passwd_dictionary, out_file_name
     output_file = open(out_file_name, 'wb')
     csv_writer = csv.writer(output_file, delimiter=',',

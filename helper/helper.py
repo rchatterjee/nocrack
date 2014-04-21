@@ -5,10 +5,11 @@ import bz2, re
 import marisa_trie
 import json
 from Crypto.Random import random
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
+
 from honeyvault_config import MAX_INT
 
-# For checking memory usage
-import resource
 
 
 from os.path import (expanduser, basename)
