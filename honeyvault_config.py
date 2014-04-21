@@ -52,3 +52,8 @@ SECURITY_PARAM_IN_BASE64 = (SECURITY_PARAM * 4)/3 + 1
 # Static domain mapping list
 STATIC_DOMAIN_LIST = 'static_domain_map.txt'
 STATIC_DOMAIN_HASH_LIST = 'static/static_domain_hashes.txt'
+
+
+
+# Machie generated password probability in set of 1000
+MACHINE_GENRATED_PASS_PROB = 10

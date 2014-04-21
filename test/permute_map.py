@@ -14,27 +14,6 @@ fact_map = [1, 2, 6, 24, 120, 720,
           # 12
             ]
 
-def encode2number( s ):
-    sorted_s = sorted(s)
-    n = len(s)
-    code = 0
-    for i, ch in enumerate(s):
-        l = sorted_s.index(ch)
-        code += l*fact_map[n-i-2]
-        del sorted_s[l]
-    return code
-
-def decode2string(num, s):
-    sorted_s = sorted(s)
-    n = len(s)
-    st = ['' for i in range(n)]
-    for i in range(n):
-        x = num/fact_map[n-i-2]
-        num -= x*fact_map[n-i-2]
-        st[i] = sorted_s[x]
-        del sorted_s[x]
-    return ''.join(st)
-
 class DTE_random:
     punct = "!@#%&*_+=~"
     All = string.ascii_letters + string.digits + punct
