@@ -51,6 +51,56 @@ for p in G:
     G[p].append(float(Cp)/G[p][1])
     totCp += Cp
 
+
+def testRandomDecoding(vault_cipher, n):
+    print "Trying to randomly decrypt:"
+    #grammar, trie = loadDicAndTrie ( 'data/grammar_combined-withcout.hny.bz2',  'data/trie_combined-withcout.hny.bz2' )
+    f = open_('/u/r/c/rchat/Acads/AdvanceComputerSecurity/PasswordDictionary/passwords/500-worst-passwords.txt.bz2')
+    count = 1000;
+    # for mp in ['rahul', 'abc123', 'password@123', 'thisismypassword', 'whatdFuck'] :
+    #     # mp = line.strip().split()[1]
+    #     ModifyGrammar(grammar, mp, FREQ);
+    #     # grammar, trie = loadandmodifygrammar ( mp );
+    #     print mp, '-->', VaultDecrypt( vault_cipher, mp, grammar )
+    #     ModifyGrammar(grammar, mp, -FREQ)
+    
+    for i, line in enumerate(f):
+        if random.random() < 0.8: continue;
+        if i > count: break;
+        mp = line.strip().split()[0]
+        # ModifyGrammar(grammar, mp, FREQ);
+# grammar, trie = loadandmodifygrammar ( mp );
+        #print "\\textbf{%s} ~$\\rightarrow$ & \\texttt{\{%s\}} \\\\" % (
+        #    mp, ', '.join(['%s' % x for x in vault_decrypt(vault_cipher, mp, n)]))
+        print mp, vault_decrypt(vault_cipher, mp, n)
+        #ModifyGrammar(grammar, mp, -FREQ)
+
+
+def test1():
+    global grammar, trie
+    Vault = """
+fb.com <> 123456
+bebo.com <> cutiepie
+youtube.com <> kevin
+uwcu.com <> princess
+google.com <> rockyou
+yahoo.com <> password12
+"""
+    vault = [x.split('<>')[1].strip() for x in Vault.split('\n') if x]
+    #vault = 'abc123 iloveyou password tree@123 (NH4)2Cr2O7' .split()
+    # vault = [ x.strip() for x in bz2.BZ2File('../PasswordDictionary/passwords/500-worst-passwords.txt.bz2').readlines()[:25] ]
+
+    mp = "random"
+    n = len(vault)
+    # print vault
+    #  grammar, trie = loadandmodifygrammar(mp)
+    cipher = vault_encrypt(vault, mp);
+    # cipher2 = vaultencrypt(vault, mp);
+    # print [len(c.encode('hex')) for c in cipher]
+    print vault_decrypt( cipher, mp, n )
+    #ModifyGrammar( grammar, mp, -FREQ);
+    testRandomDecoding(cipher, n)
+
 print 'TotalBroken in 10 tries:', totBroken, float(totBroken)/totN
 print 'Kamouflage Flaws:', totN,  totCp, float(totCp)/totN 
 #writePCFG(G, "Kamouflage_analysis.txt.bz2")

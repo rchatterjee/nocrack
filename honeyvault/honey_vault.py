@@ -1,7 +1,7 @@
-import os, sys, json
+import os, sys, json, math
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from honey_enc import DTE, DTE_large
+from honey_enc import DTE, DTE_large, DTE_random
 from scanner.scanner import Grammar, Scanner
 import honeyvault_config as hny_config
 #from buildPCFG import *
@@ -19,6 +19,7 @@ from array import array
 
 rnd_source = Random.new()
 MAX_INT = hny_config.MAX_INT
+
 #-------------------------------------------------------------------------------
 def do_crypto_setup(mp, salt = b'madhubala'):
     key = PBKDF1(mp, salt, 16, 100, SHA256)
@@ -33,6 +34,7 @@ class HoneyVault:
     s = hny_config.HONEY_VAULT_STORAGE_SIZE
     vault_total_size = hny_config.HONEY_VAULT_ENCODING_SIZE
     sample = [0,1,2]
+    mpass_set_size = int(math.ceil(s/8))
 
     def __init__(self, vault_fl, mp):
         self.pcfg = DTE_large()
@@ -65,11 +67,27 @@ class HoneyVault:
                        for i in range(hny_config.PASSWORD_LENGTH)] 
                       for x in range(self.s)]
             self.H[0] = vd.encode_vault_size(0)
+            self.machine_pass_set = [
+                '1' if random.randint(0,1000) < hny_config.MACHINE_GENRATED_PASS_PROB
+                else '0'
+                for x in range(self.mpass_set_size*8)]
             self.salt = rnd_source.read(8)
             self.save(mp)
         else:
             self.load(mp)
 
+    def gen_password(self, mp, domain_list, size=10):
+        r_dte = DTE_random()
+        reply = []
+        for d in domain_list:
+            i = self.get_domain_index(d)
+            p, encoding = r_dte.generate_and_encode_password(size)
+            self.S[i] = encoding
+            self.machine_pass_set[i] = '1'
+            reply.append(p)
+            self.save()
+        return OrderedDict(zip(domain_list, reply))
+    
     def add_password(self, domain_pw_map):
         nG = copy.deepcopy(self.dte.G)
         for p in domain_pw_map.values(): 
@@ -77,8 +95,10 @@ class HoneyVault:
         nG.fix_freq(self.pcfg)
         ndte = DTE(nG)
         if ndte != self.dte:
-            # if new dte is different then 
+            # if new dte is different then
             for i, p in enumerate(self.S):
+                if self.machine_pass_set[i]:
+                    continue
                 pw = self.dte.decode_pw(self.S[i])
                 if not pw: continue   # TODO SECURITY
                 self.S[i] = ndte.encode_pw(pw)
@@ -89,19 +109,26 @@ class HoneyVault:
             print "After Decoding:", G_
             assert G_ == nG
         for d,p in domain_pw_map.items():
-            self.S[self.get_domain_index(d)] = ndte.encode_pw(p)
+            i = self.get_domain_index(d)
+            self.S[i] = ndte.encode_pw(p)
+            self.machine_pass_set[i] = '0'
             # DEBUG
-            after_decoding = ndte.decode_pw(self.S[self.get_domain_index(d)])
-            print "Original:", p, "------\tAfterDecodign", after_decoding
-            assert  after_decoding == p
-        print "New Grammar:", nG
+            #after_decoding = ndte.decode_pw(self.S[self.get_domain_index(d)])
+            #print "Original:", p, "------\tAfterDecodign", after_decoding
+            #assert  after_decoding == p
+            #print "New Grammar:", nG
         self.dte = ndte
-
         
     def get_password(self, domain_list):
-        pw_list = [self.dte.decode_pw(
-                self.S[self.get_domain_index(d)])
-                   for d in domain_list ]
+        pw_list = []
+        r_dte = DTE_random()
+        for d in domain_list:
+            i = self.get_domain_index(d)
+            if self.machine_pass_set[i] == '1':
+                pw = r_dte.decode_pw(self.S[i])
+            else:
+                pw = self.dte.decode_pw(self.S[i])
+            pw_list.append(pw)
         return OrderedDict(zip(domain_list, pw_list)) 
     
     def get_sample_decoding(self):
@@ -116,7 +143,7 @@ class HoneyVault:
             mp = self.mp
         with open(self.vault_fl, 'wb') as fvault:
             fvault.write(self.salt)
-            buf = self.H[:]
+            buf = list(self.H[:])
             for i, a in enumerate(self.S):
                 buf.extend(a)
             aes = do_crypto_setup(mp, self.salt)
@@ -125,74 +152,31 @@ class HoneyVault:
                                     hny_config.HONEY_VAULT_ENCODING_SIZE, 
                                 *buf))
                          )
-
+            for i in range(self.mpass_set_size):
+                fvault.write(struct.pack('!B', int(
+                            ''.join(self.machine_pass_set[i*8:(i+1)*8]), 2)))
+                
     def load(self, mp):
         with open(self.vault_fl, 'rb') as fvault:
             self.salt = fvault.read(8)
+            size_of_int = struct.calcsize('I')
             aes = do_crypto_setup(mp, self.salt)
-            buf = aes.decrypt(fvault.read())
-            t_s = struct.unpack( \
-                '!%sI' % (hny_config.HONEY_VAULT_ENCODING_SIZE),
-                buf)
+            buf = aes.decrypt(
+                fvault.read(hny_config.HONEY_VAULT_ENCODING_SIZE * size_of_int))
+            t_s = struct.unpack(
+                '!%sI' % hny_config.HONEY_VAULT_ENCODING_SIZE, buf)
             self.H = t_s[:hny_config.HONEY_VAULT_GRAMMAR_SIZE]
             t_s = t_s[hny_config.HONEY_VAULT_GRAMMAR_SIZE:]
-            self.S = [t_s[i*hny_config.PASSWORD_LENGTH:\
-                              (i+1)*hny_config.PASSWORD_LENGTH] 
+            self.S = [t_s[i*hny_config.PASSWORD_LENGTH:(i+1)*hny_config.PASSWORD_LENGTH]
                       for i in range(self.s)]
-            # print '\n'.join(["%s" % str(a[:10]) for a in self.S])
-
+            buf = fvault.read(self.mpass_set_size)
+            self.machine_pass_set = \
+                list(''.join(["{0:08b}".format(x) 
+                              for x in struct.unpack(
+                                "%sB" % self.mpass_set_size, buf)]))
+            assert len(self.machine_pass_set) >= len(self.S)
 
 #----------------------------------------------------------------------
-
-def testRandomDecoding(vault_cipher, n):
-    print "Trying to randomly decrypt:"
-    #grammar, trie = loadDicAndTrie ( 'data/grammar_combined-withcout.hny.bz2',  'data/trie_combined-withcout.hny.bz2' )
-    f = open_('/u/r/c/rchat/Acads/AdvanceComputerSecurity/PasswordDictionary/passwords/500-worst-passwords.txt.bz2')
-    count = 1000;
-    # for mp in ['rahul', 'abc123', 'password@123', 'thisismypassword', 'whatdFuck'] :
-    #     # mp = line.strip().split()[1]
-    #     ModifyGrammar(grammar, mp, FREQ);
-    #     # grammar, trie = loadandmodifygrammar ( mp );
-    #     print mp, '-->', VaultDecrypt( vault_cipher, mp, grammar )
-    #     ModifyGrammar(grammar, mp, -FREQ)
-    
-    for i, line in enumerate(f):
-        if random.random() < 0.8: continue;
-        if i > count: break;
-        mp = line.strip().split()[0]
-        # ModifyGrammar(grammar, mp, FREQ);
-# grammar, trie = loadandmodifygrammar ( mp );
-        #print "\\textbf{%s} ~$\\rightarrow$ & \\texttt{\{%s\}} \\\\" % (
-        #    mp, ', '.join(['%s' % x for x in vault_decrypt(vault_cipher, mp, n)]))
-        print mp, vault_decrypt(vault_cipher, mp, n)
-        #ModifyGrammar(grammar, mp, -FREQ)
-
-
-def test1():
-    global grammar, trie
-    Vault = """
-fb.com <> 123456
-bebo.com <> cutiepie
-youtube.com <> kevin
-uwcu.com <> princess
-google.com <> rockyou
-yahoo.com <> password12
-"""
-    vault = [x.split('<>')[1].strip() for x in Vault.split('\n') if x]
-    #vault = 'abc123 iloveyou password tree@123 (NH4)2Cr2O7' .split()
-    # vault = [ x.strip() for x in bz2.BZ2File('../PasswordDictionary/passwords/500-worst-passwords.txt.bz2').readlines()[:25] ]
-
-    mp = "random"
-    n = len(vault)
-    # print vault
-    #  grammar, trie = loadandmodifygrammar(mp)
-    cipher = vault_encrypt(vault, mp);
-    # cipher2 = vaultencrypt(vault, mp);
-    # print [len(c.encode('hex')) for c in cipher]
-    print vault_decrypt( cipher, mp, n )
-    #ModifyGrammar( grammar, mp, -FREQ);
-    testRandomDecoding(cipher, n)
-
 
 def main():
         if len(sys.argv)<5 or sys.argv[0] in ['-h', '--help']:
@@ -221,5 +205,6 @@ def main():
             else: print "Sorry Anthofila! Command not recognised."
             
 if __name__ == "__main__":
-    main();
+    print "TODO: add main/test"
+    # main();
 
