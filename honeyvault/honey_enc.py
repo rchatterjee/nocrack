@@ -9,6 +9,7 @@ import sys, os, math, struct, bz2, resource
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from io import BytesIO
+import string
 from Crypto.Random import random
 import marisa_trie
 from collections import deque
@@ -18,6 +19,8 @@ import honeyvault_config as hny_config
 from helper.helper import getIndex, convert2group
 from helper.vault_dist import VaultDistribution
 from honeyvault_config import NONTERMINAL, TERMINAL
+MAX_INT = hny_config.MAX_INT
+
 # IDEA:  every genrule could be kept in a Trie.
 # DRAWBACK: it is unlikely that those words will share
 # much prefix of each other...:p
@@ -82,6 +85,123 @@ class DTE(object):
 
     def __eq__(self, o_dte):
         return self.G == o_dte.G
+
+
+class DTE_random(DTE):
+    punct = "!@#%&*_+=~"
+    All = string.ascii_letters + string.digits + punct
+    must_set = [punct, string.digits, string.ascii_uppercase, string.ascii_lowercase]
+    fact_map = [1, 2, 6, 24, 120, 720, 
+                # 1, 2, 3, 4,  5,   6,
+                5040, 40320, 362880, 3628800, 39916800,
+                # 7,    8,     9,      10,      11
+                479001600, 6227020800, 87178291200, 1307674368000, 20922789888000,
+                # 12,      13,         14,          15,            16,
+                355687428096000, 6402373705728000, 121645100408832000, 2432902008176640000
+                # 17,            18,               19,                 20
+                ]
+    MAX_ALLOWED = 14
+    
+    def __init__(self, size=10):
+        self.pw, self.encoding = self.generate_and_encode_password(size)
+
+    def generate_and_encode_password(self, size=10):
+        N = [random.randint(0, MAX_INT) for i in range(size+1)]
+        N[0] +=  (size - N[0] % self.MAX_ALLOWED)
+        P = [s[N[i+1]%len(s)] for i,s in enumerate(self.must_set)]
+        P.extend(self.All[n%len(self.All)] for n in N[len(self.must_set)+1:])
+        n = random.randint(0, MAX_INT) 
+        password = self.decode2string(n, P)
+        N.append(n)
+        extra = hny_config.PASSWORD_LENGTH - len(N);
+        N.extend([convert2group(0,1) for x in range(extra)])
+        return password, N
+
+    @staticmethod
+    def get_char(s, char_grp):
+        for i, c in enumerate(s):
+            if c in char_group:
+                return i, c
+        return 0, s[0]
+
+    @staticmethod
+    def get_random_for_this( c, arr ):
+        i = arr.index(c)
+        n = len(arr)
+        return random.randint(0, MAX_INT/n) * n + t
+
+    @staticmethod
+    def encode2number( s ):
+        sorted_s = sorted(s)
+        n = len(s)
+        code = 0
+        for i, ch in enumerate(s):
+            l = sorted_s.index(ch)
+            code += l*DTE_random.fact_map[n-i-2]
+            del sorted_s[l]
+        p = random.randint(0, MAX_INT/DTE_random.fact_map[n-1])
+        return DTE_random.fact_mapp[n-1] * p + code
+    
+    @staticmethod
+    def decode2string(num, s):
+        sorted_s = sorted(s)
+        n = len(s)
+        st = ['' for i in range(n)]
+        num %= DTE_random.fact_map[n-1]
+        for i in range(n):
+            x = num/DTE_random.fact_map[n-i-2]
+            num -= x*DTE_random.fact_map[n-i-2]
+            st[i] = sorted_s[x]
+            del sorted_s[x]
+        return ''.join(st)
+    
+    def encode_pw(self, pw):
+        p = list(pw[:])
+        must_4 = [DTE_random.get_char(p, m) for m in must_set]
+        for x in must_4:
+            del p[x[0]]
+        pw_random_order = DTE_random.decode2string(
+            random.randint(0, self.fact_map[len(p)-1]),
+            p )
+        code_g = [random.randint(0, MAX_INT/self.MAX_ALLOWED) * \
+                      self.MAX_ALLOWED + len(pw)]
+        for i, x in enumerate(must_4):
+            code_g.append(DTE_random.get_random_for_this(
+                    x[1],must_set[i]))
+        for p in pw_random_order:
+            code_g.append(DTE_random.get_random_for_this(
+                    p, All))
+        code_g.append(encode2number(pw))
+        extra = hny_config.PASSWORD_LENGTH - len(code_g);
+        code_g.extend([convert2group(0,1) for x in range(extra)])
+        return code_g
+        
+    def decode_pw(self, N):
+        assert len(N) == hny_config.PASSWORD_LENGTH
+        n = N[0] % self.MAX_ALLOWED
+        assert n == 10
+        N = N[1:n+2]
+        P = [s[N[i]%len(s)] for i,s in enumerate(self.must_set)]
+        P.extend(self.All[n%len(self.All)] for n in N[len(self.must_set):-1])
+        n = N[-1]
+        password = self.decode2string(n, P)
+        return password
+        
+        
+    def generate_random_password(self, size=10 ):
+        """
+        Generates random password of given size
+        it ensures -
+        1 uppercase
+        1 lowercase
+        1 digit
+        1 punc
+        """
+        get_rand = lambda L, c: [random.choice(L) for i in range(c)]
+        P = [get_rand(g, 1) for g in self.must_set]
+        P.extend([random.choice(self.All) for i in range(size - len(P))])
+        n = random.randint(0, fact_map[size-1])
+        return n, decode2string(n, P)
 
 
 class DTE_large(DTE):
