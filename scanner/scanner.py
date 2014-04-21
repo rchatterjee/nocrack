@@ -189,7 +189,7 @@ class Scanner:
 
 #--------------------------------------------------------------------------------
 class Grammar:
-    def __init__(self, config_fl=None, scanner=None):
+    def __init__(self, config_fl=None, scanner=None, Empty=False):
         self.scanner = scanner if scanner else Scanner()
         self.grammar_structure = GrammarStructure().G
         self.G = defaultdict(OrderedDict)
@@ -202,11 +202,15 @@ class Grammar:
                 
         # self.addDotStarRules();
         # TODO: make it better
+        if Empty: 
+            "Returning For empty"
+            return
         from string import ascii_lowercase, digits, punctuation
         for typ, characters in zip('LDY', [ascii_lowercase, digits, punctuation]): 
             self.G[typ] = OrderedDict([(x, [MIN_COUNT-1, TERMINAL]) 
                                        for x in characters])
-            self.G['G']['%s,G' % typ] = [MIN_COUNT-1, NONTERMINAL]
+            self.G['G']['%s,G' % typ] = [MIN_COUNT/2-1, NONTERMINAL]
+            self.G['G']['%s' % typ] = [MIN_COUNT-1, NONTERMINAL]
 
     def addRule_lite(self, lhs, rhs, freq, typ, 
                      ignore_addingfreq = False): # typ is NONTERMINAL or NERMINAL
@@ -223,7 +227,7 @@ class Grammar:
                                          if type(x)==type([])])
 
     def parse_pw(self, pw):
-        return self.scanner.tokenize(pw)
+        return self.scanner.tokenize(pw, isMangling=True)
 
     def get_freq_range(self, lhs, rhs):
         rhs_dict = self.G[lhs]
@@ -237,6 +241,7 @@ class Grammar:
         except ValueError:
             print "Could not find ", lhs, rhs, "in G!"
             print rhs_dict
+            raise ValueError
             return -1, -1
 
     def get_rhs(self, lhs, pt):
