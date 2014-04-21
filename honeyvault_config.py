@@ -7,8 +7,8 @@
 
 # empty lines and line beginning with '#' will be discarded
 # exact dicionary path should be given.
-
-
+import os
+BASE_DIR = os.getcwd()
 DICTIONARY_SOURCE_FILE = "../PasswordDictionary/passwords/combined-withcout.txt.bz2"
 PASSWORD_LEAK   = "../PasswordDictionary/passwords/rockyou-withcount.txt.bz2"
 
@@ -37,15 +37,11 @@ MAX_INT=4294967295
 
 # vault size to number map
 # we shall learn it later
-VAULT_SIZE_TO_FREQ = [ 0, 6, 10, 13, 8, 9, 
-                       12, 15, 12, 3, 2, 1,
-                       4, 1, 1, 1, 1]
-VAULT_SIZE_TO_FREQ.append(sum(VAULT_SIZE_TO_FREQ))
 MAX_VAULT_SIZE = 50
 
-HONEY_VAULT_GRAMMAR_SIZE  = 400   # 400 bytes, 100 integers/rules
-HONEY_VAULT_S1 = 1000
-HONEY_VAULT_S2 = 1000
+HONEY_VAULT_GRAMMAR_SIZE  = 100   # 400 bytes, 50 integers/rules
+HONEY_VAULT_S1 = 100
+HONEY_VAULT_S2 = 100
 HONEY_VAULT_STORAGE_SIZE = HONEY_VAULT_S1 + HONEY_VAULT_S2
 HONEY_VAULT_ENCODING_SIZE = HONEY_VAULT_GRAMMAR_SIZE + \
     HONEY_VAULT_STORAGE_SIZE * PASSWORD_LENGTH
@@ -55,3 +51,4 @@ SECURITY_PARAM_IN_BASE64 = (SECURITY_PARAM * 4)/3 + 1
 
 # Static domain mapping list
 STATIC_DOMAIN_LIST = 'static_domain_map.txt'
+STATIC_DOMAIN_HASH_LIST = 'static/static_domain_hashes.txt'

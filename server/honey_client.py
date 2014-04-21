@@ -4,12 +4,12 @@ import binascii
 from Crypto.Hash import SHA256
 from urlparse import urlparse
 from publicsuffix import PublicSuffixList
-sys.path.append('../')
-from honey_vault import HoneyVault
-
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
+from honeyvault.honey_vault import HoneyVault
 
 HONEY_SERVER_URL = "http://localhost:5000/"
-VAULT_FILE  = 'vault.db'
+VAULT_FILE  = 'static/vault.db'
 STATIC_DOMAIN_HASH_LIST = 'static_domain_hashes.txt'
 
 def create_request(sub_url, data):
@@ -143,7 +143,7 @@ Are all of the correct to the best of your knowledge! (y/n)""" % \
                   )    
     if y.lower() == 'y':
         hv.save()
-        print """Successfully saved your vault. 
+        return """Successfully saved your vault. 
 Now when you are sure the update is correct upload the vault to the 
 server. we are not doing automatically because I dont beleive myself"""
 
@@ -159,7 +159,7 @@ e.g. $ %s -addpass AwesomeS@la google.com
         return ''
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
-    print hv.get_password([args[1]])
+    return hv.get_password([args[1]])
 
 
 def import_vault( *args ):
