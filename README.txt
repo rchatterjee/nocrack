@@ -3,7 +3,7 @@
 # time   --> 0m9.111s  for 903072 records
 
 # ============= DEPENDANCIES =============== 
-  - python 2.6 or more
+  - python 2.7.x or more  (http://stackoverflow.com/a/5507373/1792013)
   - marisa_trie
   - (check requirement.txt)
 
@@ -28,6 +28,9 @@ $ ./honey_client
 (Follow the options provided by this)
 # to start the server run - 
 $ python server/honey_server.py
+
+(For more details check honey_client_doc.txt)
+
 
 ------------------------------------ END ---------------------------------
 # ======== These are all old versions. Just for information =======

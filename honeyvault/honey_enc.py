@@ -296,6 +296,10 @@ class DTE_large(DTE):
             stack.extend(t_set)
             n = len(rule_dict.keys())-1
             code_g.append(vd.encode_vault_size(n))
+            if n<0: 
+                print "Sorry I cannot encode your password! Please choose"
+                print "something different, password12"
+                exit(0)
             print "RuleSizeEncoding:", head, n
             assert n == vd.decode_vault_size(code_g[-1])
             #print "Encoding", '\n'.join(['%s --> %s' %(head, r) 

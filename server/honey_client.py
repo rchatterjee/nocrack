@@ -34,12 +34,12 @@ def hash_mp(mp):
 # ---------------- Client command line functions ------------------
 def register( *args ):
     h_string =  """
-cmd: register
-e.g. $ %s -register badger@honey.com 
-""" % sys.argv[0]
+register
+./honey_client -register <email-id>
+$ ./honey_client -register badgeremail@wisc.edu
+"""
     if len(args)<1:
-        print h_string
-        return ''
+        return h_string
     username = args[0]
     req = create_request('register', {'username': username})
     return urllib2.urlopen(req).read()
@@ -47,13 +47,12 @@ e.g. $ %s -register badger@honey.com
 
 def verify( *args ):    
     h_string =  """
-cmd: verify
-$ %s -verify <email> <token>
-e.g. $ %s -verify badger@honey.com 'ThisIsTheToken007+3lL=' vault.hny
-""" % (sys.argv[0], sys.argv[0])
+verify your email id. token you will get in your email after '-register'
+./honey_client -verify <email> <token>
+$ ./honey_client -verify badger@honey.com 'ThisIsTheToken007+3lL=' vault.hny
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     data = {'username' : args[0],
             'email_token' : args[1].strip("'")
             }
@@ -63,13 +62,12 @@ e.g. $ %s -verify badger@honey.com 'ThisIsTheToken007+3lL=' vault.hny
 
 def write( *args ):    
     h_string =  """
-cmd: write
-$ %s -write <email> <token> <vault_file>
-e.g. $ %s -write badger@honey.com 'ThisIsTheToken007+3lL='
-""" % (sys.argv[0], sys.argv[0])
+write/upload your vault on the server
+./honey_client -write <email> <token> <vault_file>
+$ ./honey_client -write badger@honey.com 'ThisIsTheToken007+3lL='
+"""
     if len(args)<3:
-        print h_string
-        return ''
+        return h_string
     data = {'username' : args[0],
             'token' : args[1].strip("'"),
             'vault_c' : b2a_base64(open(args[2]).read())
@@ -82,13 +80,12 @@ e.g. $ %s -write badger@honey.com 'ThisIsTheToken007+3lL='
 
 def read( *args ):    
     h_string =  """
-cmd: read
-$ %s -read <email> <token>
-e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
-""" % (sys.argv[0], sys.argv[0])
+read your vault from the server.
+./honey_client -read <email> <token>
+$ ./honey_client -v badger@honey.com 'ThisIsTheToken007+3lL='
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     data = {'username' : args[0],
             'token' : args[1].strip("'"),
             }
@@ -102,13 +99,14 @@ e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
 
 def refresh( *args ):    
     h_string =  """
-cmd: refresh
-$ %s -refresh <email> <token>
-e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
-""" % (sys.argv[0], sys.argv[0])
+refresh your token. If you dont have access to the account 
+for some reason (adversary has changed the token) reregister yourself.
+It will refresh the token and you will get back your vault.
+./honey_client -refresh <email> <last-token>
+e.g. ./honey_client -v badger@honey.com 'ThisIsTheToken007+3lL='
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     data = {'username' : args[0],
             'token' : args[1].strip("'"),
             }
@@ -118,13 +116,12 @@ e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
 
 def get_static_domains( *args ):
     h_string =  """
-cmd: static_domains
-$ %s -getdomainhash <email> <token>
-e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
-""" % (sys.argv[0], sys.argv[0])
+get the mapping of domains to index. Advanced level command!
+./honey_client -getdomainhash <email> <token>
+e.g. ./honey_client -v badger@honey.com 'ThisIsTheToken007+3lL='
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     data = {'username' : args[0],
             'token' : args[1].strip("'"),
             }
@@ -134,13 +131,14 @@ e.g. $ %s -v badger@honey.com 'ThisIsTheToken007+3lL='
 
 def add_pass( *args ):
     h_string =  """
-cmd: add password
-$ %s -addpass <master-password> <domain> <password>
-e.g. $ %s -addpass AwesomeS@la google.com 'FckingAwesome!'
-""" % (sys.argv[0], sys.argv[0])
+Add password to your vault. It will automatically initialize the vault.
+If you get some error, just delete the static/vault.db (if you dont have any password)
+Or download a copy from the server. 
+./honey_client -addpass <master-password> <domain> <password>
+e.g. ./honey_client -addpass AwesomeS@la google.com 'FckingAwesome!'
+"""
     if len(args)<3:
-        print h_string
-        return ''
+        return h_string
     mp = args[0]
     domain_pw_map = {get_exact_domain(args[1]) : args[2]}
     hv = HoneyVault(VAULT_FILE, mp)
@@ -161,13 +159,12 @@ server. we are not doing automatically because I dont beleive myself"""
 
 def get_pass( *args ):
     h_string =  """
-cmd: get the saved password
-$ %s -getpass <master-password> <domain>
-e.g. $ %s -addpass AwesomeS@la google.com
-""" % (sys.argv[0], sys.argv[0])
+get the saved password for a domain
+./honey_client -getpass <master-password> <domain>
+e.g. ./honey_client -addpass AwesomeS@la google.com
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
     return hv.get_password([get_exact_domain(args[1])])
@@ -175,17 +172,16 @@ e.g. $ %s -addpass AwesomeS@la google.com
 
 def import_vault( *args ):
     h_string =  """
-cmd: import existing vault, in given format
-$ %s -import <master-password> <vault_file>
-e.g. $ %s -import AwesomeS@la vault_file.csv
+import existing vault, in given format
+./honey_client -import <master-password> <vault_file>
+e.g. ./honey_client -import AwesomeS@la vault_file.csv
 vault file:
 # domain,username?,password
 google.com,rahulc@gmail.com,abc234
 fb.com,rchatterjee,aadhf;123l
-""" % (sys.argv[0], sys.argv[0])
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     mp = args[0]
     vault_fl = args[1]
     g = lambda l: (l[0],l[-1])
@@ -193,33 +189,36 @@ fb.com,rchatterjee,aadhf;123l
                            for a in open(vault_fl) if a[0] != '#'])
     hv = HoneyVault(VAULT_FILE, mp)
     hv.add_password(domain_pw_map)
-    y = raw_input("""Check the following sample decoded password
-and make sure your master password is correct. Otherwise you might 
-accidentally spoile your whole vault. CAREFUL. Ignore if this is the first time you are using this.
+    y = raw_input("""
+Check the following sample decoded password
+and make sure your master password is correct. Otherwise you\
+ might accidentally spoile your whole vault. CAREFUL. 
+Ignore if this is the first time you are using this.
 SAMPLE PASSWORDS: %s
-Are all of the correct to the best of your knowledge! (y/n)""" % \
+Are all of the correct to the best of your knowledge! (y/n) """ % \
                       ','.join(hv.get_sample_decoding())
                   )    
     if y.lower() == 'y':
         hv.save()
-        print """Successfully saved your vault. 
+        print """
+Successfully saved your vault. 
 Now when you are sure the update is correct upload the vault to the 
-server. we are not doing automatically because I dont beleive myself"""
+server. we are not doing automatically because I dont beleive myself
+"""
     
 
 def export_vault( *args ):
     h_string =  """
-cmd: export the vault, 
+export the vault, 
 NOTE: this might generate some extra password which does not belong to you.
 Dont panic, those are randomly generated for security purpose. 
 Also for s2 part we need the cache, if it is not complete you will miss
 some in the export file, though password is there in the vault.
-$ %s -export <master-password>
-e.g. $ %s -export AwesomeS@la
-""" % (sys.argv[0], sys.argv[0])
+./honey_client -export <master-password>
+e.g. ./honey_client -export AwesomeS@la
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     mp = args[0]
     domain = hash_mp(get_exact_domain(args[1]))
     index = json.load(open(STATIC_DOMAIN_HASH_LIST)).get(domain, -1)
@@ -227,21 +226,22 @@ e.g. $ %s -export AwesomeS@la
     
 def gen_pass( *args ):
     h_string =  """
-cmd: generate random password
-$ %s -genpass <master-password> <domain>
-e.g. $ %s -addpass AwesomeS@la google.com
-""" % (sys.argv[0], sys.argv[0])
+generate random password
+./honey_client -genpass <master-password> <domain>
+e.g. ./honey_client -addpass AwesomeS@la google.com
+"""
     if len(args)<2:
-        print h_string
-        return ''
+        return h_string
     mp = args[0]
     domain_list = [args[1]]
     hv = HoneyVault(VAULT_FILE, mp)
     return hv.gen_password(mp, domain_list)
 
 def default( *args ):
-    print '\n'.join("%s - %s" % (k,v) for k,v in command_func_map.items())
-    return "write any of the option to know about their requirements!"
+    print '\n'.join("%s : %s" % (k,v().split('\n')[1]) 
+                    for k,v in command_func_map.items() 
+                    if k != '-help' )
+    return "Write any of the option to know about their requirements!"
     
 
 command_func_map = {
@@ -250,7 +250,7 @@ command_func_map = {
     '-write' : write,
     '-read' : read,
     '-refresh' : refresh,
-    '-default' : default,
+    '-help' : default,
     '-getdomainhash' : get_static_domains,
     '-addpass' : add_pass,
     '-getpass' : get_pass,
