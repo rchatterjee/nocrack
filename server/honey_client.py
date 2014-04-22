@@ -241,7 +241,7 @@ e.g. $ %s -addpass AwesomeS@la google.com
 
 def default( *args ):
     print '\n'.join("%s - %s" % (k,v) for k,v in command_func_map.items())
-    return "You are a moron!"
+    return "write any of the option to know about their requirements!"
     
 
 command_func_map = {
