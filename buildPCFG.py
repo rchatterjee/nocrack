@@ -62,7 +62,7 @@ Lines processed, {0:d}
             w.decode('ascii')
         except UnicodeDecodeError:
             continue    # not ascii hence return
-        if c < MIN_COUNT*20 : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+        if c < MIN_COUNT : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
             print "Word frequency dropped to %d for %s" % (c, w), n
             break  # Careful!!!
         G.insert(w, c)

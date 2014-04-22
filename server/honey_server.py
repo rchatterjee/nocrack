@@ -10,7 +10,8 @@ import binascii
 import re, datetime, sys, os, json
 BASE_DIR = os.getcwd()  
 sys.path.append(BASE_DIR)
-from honeyvault_config import SECURITY_PARAM, HONEY_VAULT_ENCODING_SIZE, SECURITY_PARAM_IN_BASE64
+from honeyvault_config import (SECURITY_PARAM, HONEY_VAULT_ENCODING_SIZE,
+                               SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///honeyserver.db'
