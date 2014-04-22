@@ -13,9 +13,18 @@ sys.path.append(BASE_DIR)
 from honeyvault_config import (SECURITY_PARAM, HONEY_VAULT_ENCODING_SIZE,
                                SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST)
 
+try:
+    import OpenSSL
+except ImportError:
+    print "** Install pyopenssl **"
+    sys.path.append('/usr/lib64/python2.6/site-packages/')
+# TODO: will fix this later
+
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///honeyserver.db'
 db = SQLAlchemy(app)
+
 
 PRIVATE_HONEY_ENC_KEY = b"trha0Hmu@!$"
 PRIVATE_SALT = b"lukkaitlabon"[:8]
@@ -204,4 +213,11 @@ if __name__ == "__main__":
     import os
     if not os.path.exists('honeyserver.db'):
         db.create_all()
-    app.run(debug=True)
+    if not os.path.exists('server/server.key') or \
+            not os.path.exists('server/server.crt') :
+        print "Cannot find:", BASE_DIR + '/server/server.key'
+        exit(0)
+        
+    app.run(debug=True, 
+#            ssl_context=(BASE_DIR+'/server/server.crt', BASE_DIR+'/server/server.key')
+            )
