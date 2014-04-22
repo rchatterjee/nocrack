@@ -1,0 +1,2 @@
+#!/bin/bash
+python server/honey_client.py $@
