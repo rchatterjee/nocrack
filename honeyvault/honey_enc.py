@@ -179,7 +179,6 @@ class DTE_random(DTE):
     def decode_pw(self, N):
         assert len(N) == hny_config.PASSWORD_LENGTH
         n = N[0] % self.MAX_ALLOWED
-        assert n == 10
         N = N[1:n+2]
         P = [s[N[i]%len(s)] for i,s in enumerate(self.must_set)]
         P.extend(self.All[n%len(self.All)] for n in N[len(self.must_set):-1])

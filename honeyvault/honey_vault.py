@@ -54,7 +54,7 @@ class HoneyVault:
         try:
             return self.domain_hash_map[d_hash]
         except KeyError:
-            sys.stderr('WARNING! S1 miss for', d)
+            sys.stderr.write('WARNING! S1 miss for %s\n' % d)
             x = struct.unpack('8I', h.digest())[0]
             return self.s1 + x % self.s2
 
