@@ -11,3 +11,4 @@ test/
 *.bin
 honey_venv/
 static/token
+*.swp

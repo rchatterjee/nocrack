@@ -123,7 +123,7 @@ Lines processed, %d
             w.decode('ascii')
         except UnicodeDecodeError:
             continue     # not ascii hence return
-        if c < MIN_COUNT*10:
+        if c < MIN_COUNT:
             break
         # P is the patterns, W is the unmangled words, U is the original
         Tags, W, U  = T.tokenize(w, True) 
