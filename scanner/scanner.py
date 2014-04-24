@@ -56,25 +56,30 @@ class Scanner:
     # break it into 'best' possible chunks
     def unmangle_word(self, w, pre=''):
         if re.match(self.non_alphabet, w): return [w]
+
+        # repeat
         if len(w)>6 and len(set(w))<=2: return None
-        
-        #nw = w
+
         w = w.lower();
         nw = self.M.tweak(w) if len(w)>1 else w
         P = self.dawg.prefixes(unicode(nw))
         if not P:
             # print 'Failed!!', w; 
             return [w]
-        if len(P)<=1 and P[0].isalpha() and (len(w) - len(P[-1]))*2>len(w):
+        if (len(P)<=1 and 
+            P[0].isalpha() and 
+            (len(w) - len(P[-1]))*2>len(w)):
             # print "Couldnot find!", w, '-->', P
             return None
         #P.sort(key = lambda x: len(x)*(1+(x in self.standard_english)), reverse=True)
         P.sort(key = lambda x: len(x), reverse = True)
-        #print pre+w+str(P)
+        # print pre+w+str(P)
         nWlist=[]
         oWlist=[[], -99]
         test = 0;
         for p in P:
+            if len(p)<1:
+                break
             npw = '<3>';
             if len(p) < len(w): 
                 npw = self.unmangle_word(w[len(p):], pre+'++')
@@ -221,7 +226,10 @@ class Grammar(object):
         return self.scanner.tokenize(pw, isMangling=True)
 
     def get_freq_range(self, lhs, rhs):
-        rhs_dict = self.G[lhs]
+        try:
+            rhs_dict = self.G[lhs]
+        except KeyError:
+            return -1, -1
         try:
             i = rhs_dict.keys().index(rhs)
             l = 0;
@@ -366,14 +374,17 @@ class TrainedGrammar(Grammar):
         return super(TrainedGrammar, self).get_rhs(lhs, pt)
 
     @staticmethod
-    def key2freq(w, T, A):       
-        i = T.key_id(unicode(w))
-        if i<0:
-            print "Could not find {w} in the trie.".format(**locals())
-            exit(0)
-        else:
+    def key2freq(w, T, A):      
+        try:
+            i = T.key_id(unicode(w))
+            if i<0:
+                print "Could not find {w} in the trie."\
+                    .format(**locals())
+                raise KeyError
             S = sum( A[:i] )
             return S, S+A[i]
+        except KeyError:
+            return 0.0, 0.0
 
     @staticmethod
     def freq2key(f, T, A):
