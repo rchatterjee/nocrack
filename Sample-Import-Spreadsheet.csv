@@ -1,4 +1,0 @@
-url,type,username,password,hostname,extra,name,grouping
-http://sn,server,server1username,server1password,server1hostname,,Server 1,Server Group A
-http://sn,,,,,Adt349fme,Guest wireless key,Sys Admins
-http://community.spiceworks.com/login,,sysadmins@acme.com,spiceworkspassword,,confidential,Spiceworks Admin Login,Sys Admins
