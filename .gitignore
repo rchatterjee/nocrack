@@ -5,6 +5,7 @@
 *.gz
 data/
 honeyvenv/
+password_leak_store/
 rockYouPasswords/
 test/
 *.db

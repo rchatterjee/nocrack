@@ -108,7 +108,8 @@ def histogram_generate_rc( pw_file ):
         x[0] = float(x[0])/tF
         x[1] = float(x[1])/tG
         print "%s,%g,%g" %(k, x[0], x[1])
-    err_write(tF, tG)
+    from math import sqrt
+    err_write(tF, tG, sqrt(2.0/len(S)))
 
 def plot_hist( file_name ):
     o, e = [0.0], [0.0]
@@ -150,9 +151,11 @@ if __name__ == "__main__":
             plot_hist( sys.argv[2] )
         elif sys.argv[1] == '-hist':
             histogram_generate_rc( sys.argv[2] )
+        elif sys.argv[1] == '-prob':
+            print get_pw_prob(sys.argv[2])
         else:
             print """
-commands: -plot, -hist
+commands: -plot, -hist, -prob
 """
         #print histogram_generate( sys.argv[1] ) 
     else:
