@@ -14,7 +14,7 @@ from Crypto.Random import random
 import marisa_trie
 from collections import deque
 from scanner.scanner_helper import GrammarStructure
-from scanner.scanner import Scanner, Grammar
+from scanner.scanner import Scanner, Grammar, TrainedGrammar
 import honeyvault_config as hny_config
 from helper.helper import getIndex, convert2group
 from helper.vault_dist import VaultDistribution
@@ -41,7 +41,6 @@ class DTE(object):
     def decode(self, lhs, pt):
         if not lhs or lhs not in self.G:
             return '', 0, TERMINAL
-        assert lhs in self.G
         return self.G.get_rhs(lhs, pt)
 
     def encode_pw(self, pw):
@@ -208,64 +207,23 @@ class DTE_large(DTE):
     encodes a rule
     """
     def __init__(self, grammar=None):
-        self.term_files = {}
-        self.g_struc = GrammarStructure()
-        for k, f in self.g_struc.getTermFiles().items():
-            sys.path.append(hny_config.GRAMMAR_DIR)
-            X = __import__('%s' % f)
-            self.term_files[k] = {
-                'trie' : marisa_trie.Trie().load(hny_config.GRAMMAR_DIR+f+'.tri'),
-                'arr' : eval("X.%s"%k),
-                'trie_fl' : hny_config.GRAMMAR_DIR+f+'.tri'
-                }
-        super(DTE_large, self).__init__(grammar)
-
-    @staticmethod
-    def word2prob( w, T, A ):       
-        i = T.key_id(unicode(w))
-        if i<0:
-            print "Could not find {w} in the trie.".format(**locals())
-            exit(0)
-        else:
-            S = sum( A[:i] )
-            t = random.randint( S, S+A[i] )
-            totalC = A[-1]
-            return convert2group(t, totalC)
-
-    @staticmethod    
-    def prob2word( p, T, A):
-        i = getIndex(p, A)
-        w = T.restore_key(i)
-        return w, A[i]
+        self.G = grammar
+        if not self.G:
+            self.G = TrainedGrammar()
+            self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
-        if  lhs in self.term_files:
-            return self.word2prob(rhs, self.term_files[lhs]['trie'],
-                                 self.term_files[lhs]['arr'] )
-        return super(DTE_large, self).encode(lhs, rhs) 
+        s, e = self.G.get_freq_range(lhs, rhs)
+        return convert2group(random.randint(s, e),
+                             self.G.total_freq(lhs))
 
     def decode(self, lhs, pt):
-        if  lhs in self.term_files:
-            w, f = self.prob2word(pt, 
-                                 self.term_files[lhs]['trie'],
-                                 self.term_files[lhs]['arr'])
-            return w, f, TERMINAL
-        return super(DTE_large, self).decode(lhs, pt) 
+        if not lhs:
+            return '', 0, TERMINAL
+        w, f, typ = self.G.get_rhs(lhs, pt)
+        return w, f, typ
         
     def get_freq(self, lhs, rhs):
-        if lhs in self.term_files:
-            try:
-                i = self.term_files[lhs]['trie'].key_id(unicode(rhs))
-            except KeyError:
-                print "ERROR! Could not find '%s' in '%s'. Go debug!!"\
-                    % ( rhs, self.term_files[lhs]['trie_fl'] )
-                print self.term_files[lhs]['trie'].keys()
-                exit(0)
-                return -1
-            if i<0:
-                print "KeyError in get_freq1:", lhs, rhs
-                return -1, -1
-            return self.term_files[lhs]['arr'][i]
         try:
             s, e = self.G.get_freq_range(lhs, rhs)
             return e-s
