@@ -8,7 +8,9 @@ from publicsuffix import PublicSuffixList
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from honeyvault.honey_vault import HoneyVault
-
+from scanner.scanner import Scanner, Grammar, TrainedGrammar
+from honeyvault_config import GRAMMAR_DIR
+ 
 HONEY_SERVER_URL = "http://localhost:5000/"
 VAULT_FILE  = 'static/vault.db'
 STATIC_DOMAIN_HASH_LIST = 'static_domain_hashes.txt'
@@ -31,6 +33,29 @@ def hash_mp(mp):
     h.update(mp)
     return h.hexdigest()[:16]
 
+def get_prob( grammar, lhs, rhs ):
+    x1, x2 = grammar.get_freq_range(lhs, rhs)
+    t = x2-x1
+    if t>0:
+        return float(t)/grammar.total_freq(lhs)
+    else:
+        return 0
+    
+prod = lambda arr: arr[0] if len(arr)==1 else arr[0] * prod(arr[1:])
+
+def get_pw_prob( pw ):
+    G = TrainedGrammar()
+    G.load(GRAMMAR_DIR+'/grammar.cfg')
+    T, W, U = G.parse_pw(pw)
+    rule = ','.join(T)
+    code_g = [get_prob(G, 'G', rule)]
+    for i,p in enumerate(T):
+        code_g.append( get_prob(G, p, W[i]) )
+        if W[i] != U[i]:
+            for c,d in zip(W[i], U[i]):
+                code_g.append(get_prob(G, c, d))
+    print code_g
+    return prod(code_g)
 
 # ---------------- Client command line functions ------------------
 def get_pass( *args ):
@@ -54,6 +79,7 @@ def histogram_generate( numsamples ):
     
 if __name__ == "__main__":
     if len(sys.argv)>1:
-        print histogram_generate( sys.argv[1] ) 
+        print get_pw_prob( sys.argv[1] )
+        #print histogram_generate( sys.argv[1] ) 
     else:
         print "Please indicate the number of samples to perform"

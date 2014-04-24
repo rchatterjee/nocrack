@@ -147,7 +147,7 @@ e.g. ./honey_client -addpass AwesomeS@la google.com 'FckingAwesome!'
 and make sure your master password is correct. Otherwise you might 
 accidentally spoile your whole vault. CAREFUL.
 SAMPLE PASSWORDS: %s
-Are all of the correct to the best of your knowledge! (y/n)""" % \
+Are all of the correct to the best of your knowledge! (y/n) """ % \
                       ','.join(hv.get_sample_decoding())
                   )    
     if y.lower() == 'y':
