@@ -1,5 +1,5 @@
 import re 
-
+from collections import OrderedDict, defaultdict
 
 class GrammarStructure:
     g_reg = r'^(?P<lhs>[A-Z]+)\s+->(?P<rhs>.*)$'
@@ -82,40 +82,46 @@ class Rule:
         return True
 
 
-class ParseTree:
-    def __init__(self):
-        self.tree = dict('S', [])
+class ParseTree(object):
+    def __init__(self, T=None):
+        self.tree = []
+        if T and isinstance(T, ParseTree):
+            self.tree = T
 
-    def example(self):
-        self.tree = {'G': [
-            {'F': [{'B': ['']}, {'P': ['1']}, {'W': ['computer']}, {'S': ['']}]},
-            {'I': ['']},
-            {'F': [{'B': ['']}, {'P': ['']}, {'W': ['secret']}, {'S': ['23']}]},
-        ]}
+    def add_rule(self, rule, f=0):
+        self.tree.append(rule)
 
+    def __str__(self):
+        return str(self.tree)
 
-# class Grammar:
-#     def __init__(self):
-#         g_structure = GrammarStructure()
-#         self.g = dict(('R', []))   # list of rules, R start symbol
-#         for lhs, rhs in g_structure.G.items():
-#             self.g[lhs] = [Rule(r) for r in rhs]
+    def __nonzero__(self):
+        return bool(self.tree)
+    
 
+class RuleSet(object):
+    """
+    Set of rules, l -> r1 | r2 | r3
+    """
+    def __init__(self, T=None):
+        self.G = defaultdict(OrderedDict)
+        if T and isinstance(T, RuleSet):
+            self.G.update(T)
+    
+    def add_rule(self, r, l, f=0, rule=None):
+        if rule:
+            l = rule[0]
+            r = rule[1]
+        self.G[l][r] = self.G[l].get(r, 1)+f
+        
+    def update_set(self, T):
+        for k,v in T.items():
+            self.G[k].update(v)
 
-class Mangle:
-    def __init__(self, w, mw):
-        """
-        w = "password"
-        mw = Pa$$word
-        0: Capitalized
-        1: All Caps
-        2: leet
-        Scratch: Space is not allowed inside a password
-        """
-        self.code = mw.isalpha*(mw.isupper()*2 + mw.istitle()) 
-        self.leet_transformations = ('','')
-        if not code:
-            self.leet_transformations = (w, mw)
+    def __str__(self):
+        return str(self.G)
+
+    def __nonzero__(self):
+        return bool(self.G)
 
 
 class Tweaker:
@@ -204,7 +210,8 @@ class KeyBoard:
             pos = [M[c] for c in w]
         except KeyError:
             return 99.0, []
-        dist_pos = [self.dist(pos[i-1], pos[i]) for i in range(1,len(w))]
+        dist_pos = [self.dist(pos[i-1], pos[i]) 
+                    for i in range(1,len(w))]
         group_dist_pos = [1]
         last = dist_pos[0]
         # for i, p in range(1, len(dist_pos)):
@@ -220,7 +227,8 @@ class KeyBoard:
         #     0 - same, 
         #     1,2..8 - U, UR, R, RD, D, DL, L, UL
         
-        weight = float(n_transition)/len(dist_pos)+float(len(w))/n_char
+        weight = float(n_transition)/len(dist_pos) + \
+            float(len(w))/n_char
         seq_list = []
         if weight<1.3:
             seq = [w[0], [], self.isShift(w[0]), 0]
@@ -257,22 +265,7 @@ class Date:
     mm   = '(0[0-9]|1[0-2])'
     mon  = '(jan | feb)' # TODO: Not sure how to handle this
     dd   = '([0-2][0-9]|3[01])'
-        
-    def __init__(self, word=None):
-#         self.date = r"""^(?P<W_s>\D*)(?P<date>
-# (?P<mdy>{mm}{dd}{yy})|
-# (?P<mdY>{mm}{dd}{yyyy})|
-# (?P<dmy>{dd}{mm}{yy})|
-# (?P<dmY>{dd}{mm}{yyyy})|
-# (?P<y>{yy})|
-# (?P<Y>{yyyy})|
-# (?P<YY>{yyyy}{yyyy})|
-# (?P<md>{mm}{dd})|
-# (?P<ymd>{yy}{mm}{dd})|
-# (?P<Ymd>{yyyy}{mm}{dd})
-# )
-# (?P<W_e>\D*)$""".format(**self.__class__.__dict__)
-        self.date = r"""^(?P<date>
+    date_regex = re.compile(r"""^(?P<date>
 (?P<mdy>{mm}{dd}{yy})|
 (?P<mdY>{mm}{dd}{yyyy})|
 (?P<dmy>{dd}{mm}{yy})|
@@ -284,12 +277,17 @@ class Date:
 (?P<ymd>{yy}{mm}{dd})|
 (?P<Ymd>{yyyy}{mm}{dd})
 )
-$""".format(**self.__class__.__dict__)
+$""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy, 
+             'dd': dd}),
+                            re.VERBOSE)
+    def __init__(self, word=None):
         #self.date += "|(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*$)"
-        self.Dt = re.compile(self.date, re.VERBOSE)
         self.date = {}
         if word:
-            self.date = self.IsDate(word)        
+            self.date = self.IsDate(word)
+
+    def symbol(self):
+        return 'T'
 
     def length(self, var):
         if var == 'Y': return 4
@@ -299,18 +297,29 @@ $""".format(**self.__class__.__dict__)
     def encodeDate(self):
         return ''
 
+    def parse_tree(self):
+        return self.date
+
     def IsDate(self, s):
-        m = re.match(self.Dt, s)
+        m = re.match(self.date_regex, s)
         if not m: return None;
-        m_dict = dict((k,v) for k,v in m.groupdict().iteritems() if v and k!='date') 
+        m_dict = dict((k,v) 
+                      for k,v in m.groupdict().iteritems() 
+                      if v and k!='date') 
         k, v = m_dict.keys()[0], m_dict.values()[0]
-        T = {'T' : k}
+        x = OrderedDict()
         for l in k:
-            T[l] = v[:self.length(l)]
+            x[l] = v[:self.length(l)]
             v = v[self.length(l):]
+        T = OrderedDict([('T', x)])
         return T
+
+    def __nonzero__(self):
+        return bool(self.date)
+    __bool__ = __nonzero__
 
     def __str__(self):
         return str(self.date)
+
 if __name__ == "__main__":
     print GrammarStructure().getTermFiles()
