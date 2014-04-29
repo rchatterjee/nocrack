@@ -68,10 +68,10 @@ class Token:
 
 class Rule:
     def __init__(self, rhs, freq=0):
-        if type([]) == type(rhs):
+        if isinstance(rhs, list):
             self.rhs = rhs    # list of Tokens
         else:
-            self.rhs = [Token(x) for x in rhs.split(' ')]
+            self.rhs = [Token(x) for x in rhs.split()]
         self.freq= freq
 
     def __eq__(self, other):
@@ -254,12 +254,25 @@ class Date:
     """
     yy = '([4-9][0-9]|[0-3][0-9])'
     yyyy = '(19[4-9][0-9]|20[0-3][0-9])'
-    mm   = '(0[0-9]|1[012])'
+    mm   = '(0[0-9]|1[0-2])'
     mon  = '(jan | feb)' # TODO: Not sure how to handle this
     dd   = '([0-2][0-9]|3[01])'
         
-    def __init__(self):
-        self.date = r"""^(?P<W_s>\D*)(?P<date>
+    def __init__(self, word=None):
+#         self.date = r"""^(?P<W_s>\D*)(?P<date>
+# (?P<mdy>{mm}{dd}{yy})|
+# (?P<mdY>{mm}{dd}{yyyy})|
+# (?P<dmy>{dd}{mm}{yy})|
+# (?P<dmY>{dd}{mm}{yyyy})|
+# (?P<y>{yy})|
+# (?P<Y>{yyyy})|
+# (?P<YY>{yyyy}{yyyy})|
+# (?P<md>{mm}{dd})|
+# (?P<ymd>{yy}{mm}{dd})|
+# (?P<Ymd>{yyyy}{mm}{dd})
+# )
+# (?P<W_e>\D*)$""".format(**self.__class__.__dict__)
+        self.date = r"""^(?P<date>
 (?P<mdy>{mm}{dd}{yy})|
 (?P<mdY>{mm}{dd}{yyyy})|
 (?P<dmy>{dd}{mm}{yy})|
@@ -268,12 +281,20 @@ class Date:
 (?P<Y>{yyyy})|
 (?P<YY>{yyyy}{yyyy})|
 (?P<md>{mm}{dd})|
-(?P<ymd>{yy}{mm}{dd})
+(?P<ymd>{yy}{mm}{dd})|
 (?P<Ymd>{yyyy}{mm}{dd})
 )
-(?P<W_e>\D*)$""".format(**self.__class__.__dict__)
+$""".format(**self.__class__.__dict__)
         #self.date += "|(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*$)"
         self.Dt = re.compile(self.date, re.VERBOSE)
+        self.date = {}
+        if word:
+            self.date = self.IsDate(word)        
+
+    def length(self, var):
+        if var == 'Y': return 4
+        elif var in ['m', 'd', 'y']: return 2
+        else: return 99
 
     def encodeDate(self):
         return ''
@@ -281,9 +302,15 @@ class Date:
     def IsDate(self, s):
         m = re.match(self.Dt, s)
         if not m: return None;
-        m_dict = dict((k,v) for k,v in m.groupdict().iteritems() if v and k!='date')
-        
-        return ['T', m_dict.keys(), m_dict.values()]
+        m_dict = dict((k,v) for k,v in m.groupdict().iteritems() if v and k!='date') 
+        k, v = m_dict.keys()[0], m_dict.values()[0]
+        T = {'T' : k}
+        for l in k:
+            T[l] = v[:self.length(l)]
+            v = v[self.length(l):]
+        return T
 
+    def __str__(self):
+        return str(self.date)
 if __name__ == "__main__":
     print GrammarStructure().getTermFiles()
