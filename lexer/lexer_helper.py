@@ -91,7 +91,19 @@ class ParseTree(object):
     def add_rule(self, rule, f=0):
         self.tree.append(rule)
 
+    def rule_set(self):
+        r = RuleSet()
+        for p in self.tree:
+            if isinstance(p[1], basestring):
+                r.add_rule(p[0], p[1])
+            else:
+                r.update_set(p[1].rule_set())
+        return r
+
     def __str__(self):
+        return str(self.tree)
+
+    def __repr__(self):
         return str(self.tree)
 
     def __nonzero__(self):
@@ -107,18 +119,32 @@ class RuleSet(object):
         if T and isinstance(T, RuleSet):
             self.G.update(T)
     
-    def add_rule(self, r, l, f=0, rule=None):
+    def add_rule(self, l, r, f=0, rule=None):
         if rule:
             l = rule[0]
             r = rule[1]
         self.G[l][r] = self.G[l].get(r, 1)+f
         
-    def update_set(self, T):
-        for k,v in T.items():
-            self.G[k].update(v)
+    def update_set(self, T, with_freq=False):
+        for k,v in T.G.items():
+            if with_freq:
+                for l,r in v.items():
+                    self.G[k][l] = self.G[k].get(l,0)+r
+            else:
+                self.G[k].update(v)
+
+    def __getitem__(self, k):
+        return self.G.__getitem__(k)
+
+    def __iter__(self):
+        return iter(self.G)
+
+    def __keytransform__(self, key):
+        return key
 
     def __str__(self):
-        return str(self.G)
+        return '\n'.join(["%s -> %s" % (k,v.items()) 
+                          for k,v in self.G.items()])
 
     def __nonzero__(self):
         return bool(self.G)
@@ -300,6 +326,9 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
     def parse_tree(self):
         return self.date
 
+    def rule_set(self):
+        return self.date.rule_set()
+        
     def IsDate(self, s):
         m = re.match(self.date_regex, s)
         if not m: return None;
@@ -307,11 +336,12 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
                       for k,v in m.groupdict().iteritems() 
                       if v and k!='date') 
         k, v = m_dict.keys()[0], m_dict.values()[0]
-        x = OrderedDict()
+        x = ParseTree()
         for l in k:
-            x[l] = v[:self.length(l)]
+            x.add_rule(("T_%s"%l, v[:self.length(l)]))
             v = v[self.length(l):]
-        T = OrderedDict([('T', x)])
+        T = ParseTree()
+        T.add_rule(('T', x))
         return T
 
     def __nonzero__(self):
