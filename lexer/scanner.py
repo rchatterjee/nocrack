@@ -2,7 +2,7 @@
 import os, sys
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from dawg import IntDAWG, DAWG
+from dawg import DAWG
 import marisa_trie
 import struct, json, bz2, re
 from helper.helper import open_, getIndex

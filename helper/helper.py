@@ -7,10 +7,7 @@ import json
 from Crypto.Random import random
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-
 from honeyvault_config import MAX_INT
-
-
 
 from os.path import (expanduser, basename)
 # opens file checking whether it is bz2 compressed or not.
