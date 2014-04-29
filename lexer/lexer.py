@@ -53,17 +53,15 @@ class NonT(object): # baseclass
                                 self.prob)
 
     def parse_tree(self):
-        p_tree = OrderedDict([('G', OrderedDict())])
+        p_tree = ParseTree()
         if isinstance(self.prod, basestring):
             return self.prod
         elif isinstance(self.prod, list):
-            for i,c in enumerate(zip(self.sym, self.prod)):
-                k, p = c
-                k = '%s:%d' % (k, i)
+            for c, p in zip(self.sym, self.prod):
                 if isinstance(p, basestring):
-                    p_tree['G'][k] = p
+                    p_tree.add_rule((c, p))
                 else:
-                    p_tree['G'][k] = p.parse_tree()
+                    p_tree.add_rule((c,p.parse_tree()))
         else:
             return self.prod.parse_tree()
         return p_tree
