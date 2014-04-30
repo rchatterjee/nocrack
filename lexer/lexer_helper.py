@@ -131,11 +131,14 @@ class RuleSet(object):
     """
     Set of rules, l -> r1 | r2 | r3
     """
-    def __init__(self, T=None):
+    def __init__(self, l=None, r=None, d=None):
         self.G = defaultdict(OrderedDict)
-        if T and isinstance(T, RuleSet):
-            self.G.update(T)
-    
+        if l and r:
+            self.add_rule(l,r)
+        if d:
+            for k,v in d.items():
+                self.G[k].update(v)
+
     def add_rule(self, l, r, f=0, rule=None):
         if rule:
             l = rule[0]
@@ -143,13 +146,13 @@ class RuleSet(object):
         self.G[l][r] = self.G[l].get(r, 1)+f
         
     def update_set(self, T, with_freq=False, freq=0):
-        for k,v in T.G.items():
+        for l,v in T.items():
             if with_freq:
-                for l,r in v.items():
-                    r = freq if freq > 0 else r
-                    self.G[k][l] = self.G[k].get(l,0)+r
+                for r,f in v.items():
+                    f = freq if freq > 0 else f
+                    self.G[l][r] = self.G[l].get(r,0)+f
             else:
-                self.G[k].update(v)
+                self.G[l].update(v)
 
     def __getitem__(self, k):
         return self.G.__getitem__(k)
@@ -169,8 +172,11 @@ class RuleSet(object):
                            object_pairs_hook=OrderedDict)
 
     def __str__(self):
-        return '\n'.join(["%s -> %s" % (k,v.items()) 
-                          for k,v in self.G.items()])
+        return json.dumps(self.G, separators=(',',':'),
+                   sort_keys=True, indent=2)
+
+    def items(self):
+        return self.G.items()
 
     def __nonzero__(self):
         return bool(self.G)
@@ -357,9 +363,9 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
 
     def rule_set(self):
         r = RuleSet()
-        comb = ''.join([x[0][-1] for x in self.date[0][1]])
+        comb = ''.join([x[0][-1] for x in self.date])
         r.add_rule('T', comb)
-        for l in self.date[0][1]:
+        for l in self.date:
             r.add_rule(*l)
         return r
         
