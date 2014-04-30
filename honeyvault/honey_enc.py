@@ -13,8 +13,7 @@ import string
 from Crypto.Random import random
 import marisa_trie
 from collections import deque
-from scanner.scanner_helper import GrammarStructure
-from scanner.scanner import Scanner, Grammar, TrainedGrammar
+from lexer.pcfg import TrainedGrammar, SubGrammar 
 import honeyvault_config as hny_config
 from helper.helper import getIndex, convert2group
 from helper.vault_dist import VaultDistribution
@@ -29,58 +28,25 @@ class DTE(object):
     def __init__(self, grammar=None):
         self.G = grammar
         if not self.G:
-            self.G = Grammar()
-            self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
+            self.G = TrainedGrammar()
+            # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
         assert lhs in self.G
-        s, e  = self.G.get_freq_range(lhs, rhs)
-        return convert2group(random.randint(s, e),
-                             self.G[lhs]['__total__'])
+        a = self.G.encode_rule(lhs, rhs)
+        if not a:
+            print "NonERROR", lhs, rhs, a
+            exit(0)
+        return a
 
     def decode(self, lhs, pt):
-        if not lhs or lhs not in self.G:
-            return '', 0, TERMINAL
-        return self.G.get_rhs(lhs, pt)
+        return self.decode_rule(lhs, pt)
 
     def encode_pw(self, pw):
-        code_g = [] #convert2group(0,1) for i in \
-                    #  range(hny_config.PASSWORD_LENGTH)])
-        T, W, U = self.G.parse_pw(pw)
-        rule = ','.join(T)
-        code_g.append(self.encode('G', rule))
-        for i,p in enumerate(T):
-            t=self.encode(p, W[i])
-            if t==-1: 
-                print "Sorry boss! iQuit!"
-                return Encode_spcl(pw, grammar)
-            code_g.append( t )
-            # TODO - make it better with Capitalize, AllCaps, L33t etc
-            if W[i] != U[i]:
-                for c,d in zip(W[i], U[i]):
-                    code_g.append(self.encode(c,d))
-        # padd the encoding with some random numbers to make it 
-        # of size PASSWORD_LENGTH 
-        extra = hny_config.PASSWORD_LENGTH - len(code_g);
-        code_g.extend([convert2group(0,1) for x in range(extra)])
-        return code_g
+        return self.G.encode_pw(pw)
     
     def decode_pw(self, P):
-        assert len(P) == hny_config.PASSWORD_LENGTH
-        iterp = iter(P)
-        plaintext = '';
-        stack = ['G']
-        while stack:
-            head = stack.pop()
-            print head, stack, plaintext
-            rhs, freq, typ = self.decode(head, iterp.next())
-            if typ == NONTERMINAL:
-                arr = rhs.split(',')
-                arr.reverse()
-                stack.extend(arr)
-            else:
-                plaintext += rhs
-        return plaintext
+        return self.G.decode_pw(P)
 
     def __eq__(self, o_dte):
         return self.G == o_dte.G
@@ -210,20 +176,16 @@ class DTE_large(DTE):
         self.G = grammar
         if not self.G:
             self.G = TrainedGrammar()
-            self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
+            # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
-        s, e = self.G.get_freq_range(lhs, rhs)
-        return convert2group(random.randint(s, e),
-                             self.G.total_freq(lhs))
+        return self.G.encode_rule(lhs,rhs)
 
     def decode(self, lhs, pt):
-        if not lhs:
-            return '', 0, TERMINAL
-        w, f, typ = self.G.get_rhs(lhs, pt)
-        return w, f, typ
+        return self.G.decode_rule(lhs, pt)
         
     def get_freq(self, lhs, rhs):
+        return self.G.get_freq(lhs, rhs)
         try:
             s, e = self.G.get_freq_range(lhs, rhs)
             return e-s
@@ -245,32 +207,32 @@ class DTE_large(DTE):
             rule_dict = G[head]
             t_set = []
             for rhs, f in rule_dict.items():
-                if rhs != '__total__' and f[1] == NONTERMINAL:
-                    for x in rhs.split(','):
-                        if x not in done and x not in t_set and \
-                                x not in stack:
-                            t_set.append(x)
+                if rhs != '__total__':
+                    r = filter(lambda x: x not in done+stack, 
+                               self.G.get_actual_NonTlist(head, rhs))
+                    if r:
+                        for x in r:
+                            if (x not in t_set):
+                                t_set.append(x)
             t_set.reverse()
             stack.extend(t_set)
+            print stack, '~~>', head, rule_dict
             n = len(rule_dict.keys())-1
             code_g.append(vd.encode_vault_size(n))
             if n<0: 
                 print "Sorry I cannot encode your password! Please choose"
                 print "something different, password12"
                 exit(0)
-            print "RuleSizeEncoding:", head, n
             assert n == vd.decode_vault_size(code_g[-1])
-            #print "Encoding", '\n'.join(['%s --> %s' %(head, r) 
-            #                             for r in rule_dict.keys()])
             code_g.extend([self.encode(head, r) 
                            for r in rule_dict.keys()
                            if r != '__total__'])
         extra = hny_config.HONEY_VAULT_GRAMMAR_SIZE - len(code_g);
-        code_g.extend([convert2group(0,1) for x in range(extra)])     
+        code_g.extend([convert2group(0,1) for x in range(extra)])
         return code_g
 
     def decode_grammar(self, P):
-        g=Grammar(Empty=True)
+        g=SubGrammar(self.G)
         vd = VaultDistribution()
         iterp = iter(P)
         stack = ['G']
@@ -284,17 +246,19 @@ class DTE_large(DTE):
             print "RuleSizeDecoding:", head, n
             t_set = []
             for x in range(n):
-                rhs, freq, typ = self.decode(head, iterp.next())
+                rhs = self.decode(head, iterp.next())
                 # print "Decoding:", head, '==>', rhs
-                g.addRule_lite(head, rhs, freq, typ, True)
-                if rhs != '__totoal__' and typ == NONTERMINAL:
-                    for x in rhs.split(','):
-                        if x not in done and x not in t_set and \
-                                x not in stack:
-                            t_set.append(x)
+                if rhs != '__totoal__':
+                    r = filter(lambda x: x not in done+stack, 
+                               self.G.get_actual_NonTlist(head, rhs))
+                    if r:
+                        for x in r:
+                            if (x not in t_set):
+                                t_set.append(x)
+                g.add_rule(head, rhs)
             t_set.reverse()
             stack.extend(t_set)
-        g.update_total_freq()
+        g.fix_freq()
         return g
 
     def update_dte_for_vault(self, G):
@@ -303,7 +267,6 @@ class DTE_large(DTE):
         self.term_files = {}
         self.G.G = G;
         
-
         
 def getVal( arr, val ):
     """
@@ -381,78 +344,6 @@ def Encode_spcl( m, grammar ):
     return E;
 
 
-def Encode(m, scanner, dte ):
-    P, W, U = scanner.tokenize(m, True)
-    E = []
-    print P, W, U;
-    # Grammar is of the form: S -> L3D2Y1 | L3Y2D5 | L5D2
-    t = dte.encode('G', ','.join([ str(x) for x in P]) )
-    print 't:', t; 
-    if t==-1: # use the default .* parsing rule..:P 
-        print "Encode Spcl"
-        exit (0) 
-        return Encode_spcl( m, grammar );
-    else: E.append( t );
-
-    for i,p in enumerate(P):
-        t=dte.encode(p, W[i])
-        if t==-1: 
-            return Encode_spcl(m, grammar)
-        E.append( t )
-        continue;
-        if W[i].isalpha():
-            for w,u in zip(W[i], U[i]):
-                try:
-                    t = getVal(grammar[w], u) 
-                    if t!=-1: E.append( t )
-                    else: 
-                        print 'here2', w, u
-                        return Encode_spcl(m, grammar)
-                except KeyError:
-                    print 'here3', w, u
-                    return Encode_spcl(m, grammar)
-    print "Actual:", E;
-    if PASSWORD_LENGTH>0:
-        extra = PASSWORD_LENGTH - len(E);
-        E.extend( [ convert2group(0,1) for x in range(extra) ] )
-    c_struct = struct.pack('%sI' % len(E), *E )
-    return c_struct
-
-
-# c is of the form set of numbers... 
-# probabilities, CDF
-def Decode ( c, dte ):
-    # c is io.BytesIO
-    t = len( c );
-    P = struct.unpack('%sI'%(t/4), c)
-    #if ( len(P) != PASSWORD_LENGTH ):
-        # print "Encryptino is not of correct length"
-        
-    plaintext = '';
-    #queue = deque(['S']);
-    stack = ['G']
-    for p in P:
-        try:
-            g = dte.decode( stack.pop(), p )
-        except IndexError: 
-            #print plaintext, g
-            #print "empty queue"
-            break;
-        if g[2] == NONTERMINAL: 
-            arr = g[0].split(',')
-            arr.reverse()
-            stack.extend(arr)
-        elif g[2] == NONTERMINAL+1:
-            arr = list(g[0])
-            arr.reverse()
-            stack.extend(arr)
-        else: # zero, terminal add 
-            plaintext += g[0]
-        print g, stack, plaintext
-    return plaintext
-
-    
-        
 def main():
     #print T.tokenize('P@$$w0rd', True)
     #exit(0)
