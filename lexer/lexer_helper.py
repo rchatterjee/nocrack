@@ -1,4 +1,4 @@
-import re 
+import re, json
 from collections import OrderedDict, defaultdict
 
 class GrammarStructure:
@@ -83,13 +83,24 @@ class Rule:
 
 
 class ParseTree(object):
-    def __init__(self, T=None):
+    def __init__(self, l=None, r=None):
         self.tree = []
-        if T and isinstance(T, ParseTree):
-            self.tree = T
+        if l and r:
+            self.add_rule((l,r))
 
     def add_rule(self, rule, f=0):
         self.tree.append(rule)
+
+    def extend_rule(self, ptree):
+        self.tree.extend(ptree.tree)
+
+    def get_rule(self):
+        rule = self.tree[0]
+        lhs = rule[0]
+        rep_str = '%s_' % lhs
+        rhs = ''.join([ k[0].replace(rep_str, '') 
+                      for k in rule[1]])
+        return lhs, rhs
 
     def rule_set(self):
         r = RuleSet()
@@ -97,6 +108,7 @@ class ParseTree(object):
             if isinstance(p[1], basestring):
                 r.add_rule(p[0], p[1])
             else:
+                r.add_rule(*(self.get_rule()))
                 r.update_set(p[1].rule_set())
         return r
 
@@ -108,7 +120,12 @@ class ParseTree(object):
 
     def __nonzero__(self):
         return bool(self.tree)
-    
+
+    def __getitem__(self, index):
+        return self.tree[index]
+
+    def save(self, fname):
+        json.dumps(self.tree, fname)
 
 class RuleSet(object):
     """
@@ -125,10 +142,11 @@ class RuleSet(object):
             r = rule[1]
         self.G[l][r] = self.G[l].get(r, 1)+f
         
-    def update_set(self, T, with_freq=False):
+    def update_set(self, T, with_freq=False, freq=0):
         for k,v in T.G.items():
             if with_freq:
                 for l,r in v.items():
+                    r = freq if freq > 0 else r
                     self.G[k][l] = self.G[k].get(l,0)+r
             else:
                 self.G[k].update(v)
@@ -141,6 +159,14 @@ class RuleSet(object):
 
     def __keytransform__(self, key):
         return key
+
+    def save(self, outf):
+        json.dump(self.G, outf, sort_keys=True,
+                  separators=(',', ':'), indent=2)
+
+    def load(self, in_file):
+        self.G = json.load(open_(in_file),
+                           object_pairs_hook=OrderedDict)
 
     def __str__(self):
         return '\n'.join(["%s -> %s" % (k,v.items()) 
@@ -306,6 +332,9 @@ class Date:
 $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy, 
              'dd': dd}),
                             re.VERBOSE)
+    # TODO: randomize the ordering of mm and dd, 
+    # Secuirty concern
+
     def __init__(self, word=None):
         #self.date += "|(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*$)"
         self.date = {}
@@ -327,7 +356,12 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
         return self.date
 
     def rule_set(self):
-        return self.date.rule_set()
+        r = RuleSet()
+        comb = ''.join([x[0][-1] for x in self.date[0][1]])
+        r.add_rule('T', comb)
+        for l in self.date[0][1]:
+            r.add_rule(*l)
+        return r
         
     def IsDate(self, s):
         m = re.match(self.date_regex, s)
@@ -340,9 +374,7 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
         for l in k:
             x.add_rule(("T_%s"%l, v[:self.length(l)]))
             v = v[self.length(l):]
-        T = ParseTree()
-        T.add_rule(('T', x))
-        return T
+        return x
 
     def __nonzero__(self):
         return bool(self.date)
