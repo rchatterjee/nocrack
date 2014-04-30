@@ -2,8 +2,8 @@
 
 import csv, sys, os, re, bz2
 from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
-from scanner.scanner_helper import GrammarStructure
-from scanner.scanner import Scanner, Grammar
+from lexer import lexer
+from lexer.lexer
 from helper.helper import open_
 import resource  # For checking memory usage
 import marisa_trie
