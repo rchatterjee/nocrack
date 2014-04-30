@@ -2,9 +2,8 @@ import os, sys, json, math
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from honey_enc import DTE, DTE_large, DTE_random
-from scanner.scanner import Grammar, Scanner
 import honeyvault_config as hny_config
-#from buildPCFG import *
+from lexer.pcfg import TrainedGrammar 
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
@@ -38,14 +37,13 @@ class HoneyVault:
 
     def __init__(self, vault_fl, mp):
         self.pcfg = DTE_large()
-        self.scanner = Scanner() # default scanner
         domain_hash_map_fl = hny_config.STATIC_DOMAIN_HASH_LIST
         self.domain_hash_map = json.load(open_(domain_hash_map_fl))
         self.vault_fl = vault_fl
         self.mp = mp
         self.initialize_vault(mp)
         self.dte = DTE(self.pcfg.decode_grammar(self.H))
-        print self.dte.G
+        # print self.dte.G
         
     def get_domain_index(self, d):
         h = SHA256.new()
@@ -90,9 +88,7 @@ class HoneyVault:
     
     def add_password(self, domain_pw_map):
         nG = copy.deepcopy(self.dte.G)
-        for p in domain_pw_map.values(): 
-            nG.update_grammar(pw=p)
-        nG.fix_freq(self.pcfg)
+        nG.update_grammar(*(domain_pw_map.values()))
         ndte = DTE(nG)
         if ndte != self.dte:
             # if new dte is different then
@@ -103,6 +99,7 @@ class HoneyVault:
                 if not pw: continue   # TODO SECURITY
                 self.S[i] = ndte.encode_pw(pw)
             self.H = self.pcfg.encode_grammar(nG)
+            print self.H[:10]
             G_ = self.pcfg.decode_grammar(self.H)
             print "-"*50
             print "Original: ", nG, '\n', '='*50

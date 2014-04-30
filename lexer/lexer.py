@@ -103,8 +103,9 @@ class NonT_L(NonT):
     def parse_tree(self):
         p_tree = ParseTree()
         p_tree.add_rule(('L', self.prod))
+        L = ['L_%s' % c for c in self.l]
         if self.prod == 'l33t':
-            p_tree.add_rule(('l33t', dict(zip(self.l, self.r))))
+            p_tree.add_rule(('l33t', zip(L, self.r)))
         return p_tree
     
     def rule_set(self):
@@ -176,14 +177,21 @@ class NonT_D(NonT):
         d = Date(w)
         if d:
             self.sym = 'T'
-            self.prod = d.parse_tree()
+            self.prod = d
             self.prob = 10**(len(w)-8)
 
     def parse_tree(self):
-        if isinstance(self.prob, basestring):
+        if isinstance(self.prod, basestring):
             return ParseTree(self.sym, self.prod)
         else:
-            return self.prod
+            return self.prod.parse_tree()
+
+    def rule_set(self):
+        if isinstance(self.prod, basestring):
+            return RuleSet(self.sym, self.prod)
+        else:
+            return self.prod.rule_set()
+
 
 class NonT_R(NonT): # repeat
     sym, prod, prob = 'R', '', 0.0
@@ -265,7 +273,7 @@ def parse(word):
                 print "Not sure why it reached here. But it did!"
                 print i, j, word[i: i+j+1]
                 # exit(0)
-    return A[(0, len(word)-1)]
+    return NonT_combined(A[(0, len(word)-1)])
 
 
 
@@ -315,7 +323,6 @@ def buildpcfg(passwd_dictionary, start=0, end=-1):
         T = parse(w)
         R.update_set(T.rule_set(), with_freq=True, freq=c)
     if end>0: return R
-    print R
     R.save(bz2.BZ2File(out_grammar_fl, 'wb'))
 
 def wraper_buildpcfg( args ):
@@ -337,7 +344,7 @@ def parallal_buildpcfg(password_dictionary):
 
 if __name__ == "__main__":
     if sys.argv[1] == '-buildG':
-        buildpcfg(sys.argv[2])
+        print buildpcfg(sys.argv[2], 0, 100)
     elif sys.argv[1] == '-buildparallelG':
         parallal_buildpcfg(sys.argv[2])
     elif sys.argv[1]=='-file':
