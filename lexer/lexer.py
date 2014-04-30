@@ -21,8 +21,10 @@ from lexer_helper import Date, KeyBoard, RuleSet, ParseTree
 from helper.helper import open_, getIndex
 import honeyvault_config as hny_config
 from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
+from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
 from collections import OrderedDict, defaultdict
 from pprint import pprint
+import resource  # For checking memory usage
 
 # Dictionaries:
 # English_30000.dawg
@@ -58,10 +60,7 @@ class NonT(object): # baseclass
             return self.prod
         elif isinstance(self.prod, list):
             for p in self.prod:
-                if isinstance(p.prod, basestring):
-                    p_tree.add_rule((p.sym, p.prod))
-                else:
-                    p_tree.add_rule((p.sym,p.parse_tree()))
+                p_tree.add_rule((p.sym,p.parse_tree()))
         else:
             return self.prod.parse_tree()
         return p_tree
@@ -101,18 +100,19 @@ class NonT_L(NonT):
         else:
             self.prob = 1.0
 
-    def pars_tree(self):
+    def parse_tree(self):
         p_tree = ParseTree()
         p_tree.add_rule(('L', self.prod))
         if self.prod == 'l33t':
-            p_tree.addrule(('l33t', dict(zip(self.l, self.r))))
+            p_tree.add_rule(('l33t', dict(zip(self.l, self.r))))
         return p_tree
     
     def rule_set(self):
         rs = RuleSet()
         rs.add_rule('L', self.prod)
-        for c,d in zip(self.l, self.r):
-            rs.add_rule('L_%s'%c,d)
+        if self.prod is 'l33t':
+            for c,d in zip(self.l, self.r):
+                rs.add_rule('L_%s'%c,d)
         return rs
 
 class NonT_W(NonT):
@@ -147,13 +147,13 @@ class NonT_W(NonT):
             v = v[0]
             f = sum([d[0][v] for d in dawg])
             self.prod = v
-            self.L    = NonT_L(v, word)
+            self.L = NonT_L(v, word)
             self.prob = self.L.prob * float(f)/self.total_f 
 
     def parse_tree(self):
         pt = ParseTree()
         pt.add_rule(('W', self.prod))
-        pt.add_rule(('L', self.L.parse_tree()))
+        pt.extend_rule(self.L.parse_tree())
         return pt
 
     def rule_set(self):
@@ -165,18 +165,25 @@ class NonT_W(NonT):
     def __str__(self):
         return '%s: %s<%s> (%g)' % (self.sym, self.prod,
                                     self.L, self.prob)
-        
+
 class NonT_D(NonT):
     sym, prod, prob = 'D', '', 0.0
     def __init__(self, w):
         # super(NonT_D, self).__init__()
-        self.prod = Date(w)
-        if not self.prod:
-            if w.isdigit():
-                self.prod = w
-                self.prob = 0.001
-        else:
+        if w.isdigit():
+            self.prod = w
+            self.prob = 0.001
+        d = Date(w)
+        if d:
+            self.sym = 'T'
+            self.prod = d.parse_tree()
             self.prob = 10**(len(w)-8)
+
+    def parse_tree(self):
+        if isinstance(self.prob, basestring):
+            return ParseTree(self.sym, self.prod)
+        else:
+            return self.prod
 
 class NonT_R(NonT): # repeat
     sym, prod, prob = 'R', '', 0.0
@@ -199,7 +206,7 @@ class NonT_K(NonT):
 
 class NonT_Y(NonT):
     sym, prod, prob = 'Y', '', 0.0
-    regex = r'^\W+$'
+    regex = r'^[\W_]+$'
     def __init__(self, word):
         #super(NonT_Y, self).__init__()
         if re.match(self.regex, word):
@@ -262,19 +269,96 @@ def parse(word):
 
 
 
+def check_resource(n=0):
+    r = MEMLIMMIT*1024 - \
+        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+    print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n
+    if r < 0:
+        print '''
+Hitting the memory limit of 1GB,
+please increase the limit or use smaller data set.
+Lines processed, {0:d}
+'''.format(n)
+        return 0;
+    return r/10+100;
+
+    
+def buildpcfg(passwd_dictionary, start=0, end=-1):
+    #MIN_COUNT=1000
+    R = RuleSet()
+    # resource track
+    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg.bz2'
+    resource_tracker = 5240
+    for n, line in enumerate(open_(passwd_dictionary)):
+        if n<start: continue
+        if n>end: break
+        if n>resource_tracker:
+            l = check_resource(n)
+            if not l:
+                break
+            else:
+                resource_tracker += l
+        # if n%1000==0: print n;
+        line = line.strip().split()
+        if len(line) > 1 and line[0].isdigit():
+            w, c = ' '.join(line[1:]), int(line[0])
+        else:
+            continue
+            w, c = ' '.join(line), 1
+        try:
+            w.decode('ascii')
+        except UnicodeDecodeError:
+            continue    # not ascii hence return
+        if c < MIN_COUNT : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+            print "Word frequency dropped to %d for %s" % (c, w), n
+            break  # Careful!!!
+        T = parse(w)
+        R.update_set(T.rule_set(), with_freq=True, freq=c)
+    if end>0: return R
+    print R
+    R.save(bz2.BZ2File(out_grammar_fl, 'wb'))
+
+def wraper_buildpcfg( args ):
+    return buildpcfg( *args )
+
+def parallal_buildpcfg(password_dictionary):
+    from multiprocessing import Pool
+    p = Pool()
+    Complete_grammar = RuleSet()
+    load_each = 10000
+    a = [(password_dictionary, c, c+load_each)
+         for c in range(0, 10**6, load_each)]
+    R = p.map(wraper_buildpcfg, a)
+    for r in R:
+        Complete_grammar.update_set(r, with_freq=True)
+    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg.bz2'
+    Complete_grammar.save(bz2.BZ2File(out_grammar_fl, 'wb'))
+
 
 if __name__ == "__main__":
-    if sys.argv[1]=='-file':
+    if sys.argv[1] == '-buildG':
+        buildpcfg(sys.argv[2])
+    elif sys.argv[1] == '-buildparallelG':
+        parallal_buildpcfg(sys.argv[2])
+    elif sys.argv[1]=='-file':
+        R = RuleSet()
         with open_(sys.argv[2]) as f:
             for i, line in enumerate(f):
-                if i<1000: continue
+                if i<5000: continue
                 l = line.strip().split()
                 w, c = ' '.join(l[1:]), int(l[0])
+                try: w.decode('ascii')
+                except UnicodeDecodeError:
+                    continue    # not ascii hence return
+                if not w or len(w.strip())<1:
+                    continue
                 T = parse(w)
-                print T.parse_tree()
-                if i>5000: break
-    elif sys.argv[1] == '-word':
-        print parse(sys.argv[2])
+                R.update_set(T.rule_set(), with_freq=True, freq=c)
+                if i%100==0: print i
+                if i>5200: break
+        print R
     elif sys.argv[1] == '-parse':
+        print parse(sys.argv[2]).parse_tree()
+    elif sys.argv[1] == '-ruleset':
         T = parse(sys.argv[2])
         print T.rule_set()
