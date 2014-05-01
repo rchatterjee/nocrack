@@ -243,22 +243,31 @@ def default( *args ):
                     if k != '-help' )
     return "Write any of the option to know about their requirements!"
     
+def test_getpass():
+    for l in open('password_leak_store/myspace-withcount.txt'):
+        if l and len(l.split())>1:
+            print l,
+            l = l.strip().split()
+            c, w = l[0], ' '.join(l[1:])
+            print '~~>', get_pass(w, 'google.com')
 
 command_func_map = {
-    '-register' : register,
-    '-verify' : verify,
-    '-write' : write,
-    '-read' : read,
-    '-refresh' : refresh,
-    '-help' : default,
-    '-getdomainhash' : get_static_domains,
-    '-addpass' : add_pass,
-    '-getpass' : get_pass,
-    '-genpass' : gen_pass,
-    '-import' : import_vault,
-    '-export' : export_vault,
+    '-register': register,
+    '-verify': verify,
+    '-write': write,
+    '-read': read,
+    '-refresh': refresh,
+    '-help': default,
+    '-getdomainhash': get_static_domains,
+    '-addpass': add_pass,
+    '-getpass': get_pass,
+    '-genpass': gen_pass,
+    '-import': import_vault,
+    '-export': export_vault,
+    '-test': test_getpass,
 }
 
+    
 
 if __name__ == "__main__":
     if len(sys.argv)>1:
