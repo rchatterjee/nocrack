@@ -10,6 +10,6 @@ rockYouPasswords/
 test/
 *.db
 *.bin
-honey_venv/
+hvenv/
 static/token
 *.swp
