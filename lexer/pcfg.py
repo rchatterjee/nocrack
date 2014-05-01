@@ -136,6 +136,9 @@ class TrainedGrammar(object):
     def l_parse_tree(self, word): # leftmost parse-tree
         pt = ParseTree()
         p = self.parse(word)
+        if not p:
+            print "Failing at ", word.encode('utf-8')
+            return pt
         pt.add_rule(('G', p[0]))
         for l, each_r in zip(p[0], p[1]):
             if isinstance(each_r, basestring):
@@ -265,6 +268,7 @@ class SubGrammar(TrainedGrammar):
     def update_grammar(self, *args):
         self.reset()
         for pw in args:
+            pw = pw.replace('\\', '')
             self.R.update_set(self.base_pcfg.rule_set(pw))
         self.finalize()
 
@@ -292,3 +296,5 @@ if __name__=='__main__':
     elif sys.argv[1] == '-vault':
         g = SubGrammar(tg, sys.argv[2:])
         print g
+    elif sys.argv[1] == '-parse':
+        print 'Parse',  tg.parse(sys.argv[2])

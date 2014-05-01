@@ -1,36 +1,48 @@
-from helper import convert2group, getIndex
+from helper import open_, convert2group, getIndex
 from Crypto.Random import random 
+import os, sys, json
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
+from honeyvault_config import GRAMMAR_DIR
+from collections import OrderedDict
+
+MAX_ALLOWED = 20 # per rule
+VAULT_DIST_FILE = GRAMMAR_DIR+'vault_dist.cfg'
 
 class VaultDistribution:
     def __init__(self):
-        self.vs2f = [1, 6, 10, 13, 8, 9, 
-                     12, 15, 12, 3, 2, 1]
-        self.vs2f.extend([1]*50)
-        for i, a in enumerate(self.vs2f):
-            self.vs2f[i] = a*5
-            
-        self.total = sum(self.vs2f)
-        self.vs2f.append(self.total)
+        self.G = json.load(open_(VAULT_DIST_FILE),
+                           object_pairs_hook=OrderedDict)
+        for k,v in self.G.items():
+            v['__total__'] = sum(v.values())
 
-    def encode_vault_size(self, n ):
-        # n = min(len(self.VAULT_SIZE_TO_FREQ)-1, n)
-        x = sum(self.vs2f[:n])
-        y = x + self.vs2f[n]
-        # print __name__, 'encoding:', x, y
+    def encode_vault_size(self, lhs, n):
+        v = self.G.get(lhs, {})
+        n = str(n)
+        try:
+            i = v.keys().index(n)
+            x = sum(v.values()[:i])
+            y = x + v.values()[i]
+        except ValueError:
+            return convert2group(0, v['__total__'])
         return convert2group(random.randint(x, y-1),
-                             self.total)
+                             v['__total__'])
 
-    def decode_vault_size(self, cf):
-        i = getIndex(cf, self.vs2f)
-        # print __name__, 'decoding:', cf % self.total, i
-        return i%50
+    def decode_vault_size(self, lhs, cf):
+        assert not lhs.startswith('L')
+        cf %= self.G[lhs]['__total__']
+        if cf == 0:
+            return cf
+        i = getIndex(cf, self.G[lhs].values())
+        return i+1
 
 
 if __name__ == '__main__':
     vd = VaultDistribution()
-    assert vd.decode_vault_size(vd.encode_vault_size(0)) == 0
+    assert vd.decode_vault_size('D', vd.encode_vault_size('D', 0)) == 0
     for i in range(25):
-        k = random.randint(0,len(vd.vs2f))
-        print i, k
-        assert vd.decode_vault_size(vd.encode_vault_size(k)) == k
+        k = random.randint(0,MAX_ALLOWED)
+        lhs = random.choice(vd.G.keys())
+        e = vd.encode_vault_size(lhs, k)
+        assert vd.decode_vault_size(lhs, e) == k
         
