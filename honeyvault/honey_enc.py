@@ -243,7 +243,7 @@ class DTE_large(DTE):
             done.append(head)
             p = iterp.next()
             n = vd.decode_vault_size(p)
-            print "RuleSizeDecoding:", head, n
+            # print "RuleSizeDecoding:", head, n
             t_set = []
             for x in range(n):
                 rhs = self.decode(head, iterp.next())
@@ -355,7 +355,7 @@ def main():
     c = Encode(p, scanner, dte);
     #print "Encoding:", c
     m = Decode(c, dte);
-    print "After Decoding:", m
+    # print "After Decoding:", m
     #return
     #     if PASSWORD_LENGTH>0:
     for s in range(0000):
