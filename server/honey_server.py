@@ -11,7 +11,8 @@ import re, datetime, sys, os, json
 BASE_DIR = os.getcwd()  
 sys.path.append(BASE_DIR)
 from honeyvault_config import (SECURITY_PARAM, HONEY_VAULT_ENCODING_SIZE,
-                               SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST)
+                               SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST,
+                               HONEY_VAULT_TOTAL_CIPHER_SIZE)
 
 try:
     import OpenSSL
@@ -85,14 +86,14 @@ class User(db.Model):
     salt_pub = db.Column(db.String(SECURITY_PARAM_IN_BASE64), nullable=False)
     salt_sec = db.Column(db.String(SECURITY_PARAM_IN_BASE64), nullable=False)
     bearer_token = db.Column(db.String(SECURITY_PARAM_IN_BASE64), nullable=False)
-    vault_c  = db.Column(db.String(int(HONEY_VAULT_ENCODING_SIZE*6)))
+    vault_c  = db.Column(db.String(HONEY_VAULT_TOTAL_CIPHER_SIZE*6))
             
     def __init__(self, username):
         self.username = username
         self.salt_pub = b2a_base64(get_public_salt(username))
         self.salt_sec = b2a_base64(global_randfl.read(SECURITY_PARAM))
         self.bearer_token = b2a_base64(global_randfl.read(SECURITY_PARAM))
-        self.vault_c  = b2a_base64(global_randfl.read(int(HONEY_VAULT_ENCODING_SIZE*1.4)))
+        self.vault_c  = b2a_base64(global_randfl.read(HONEY_VAULT_TOTAL_CIPHER_SIZE*4))
         
     def __repr__(self):
         return '<User %r - <%r>>' % (self.username, self.bearer_token)
