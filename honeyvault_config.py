@@ -7,7 +7,7 @@
 
 # empty lines and line beginning with '#' will be discarded
 # exact dicionary path should be given.
-import os
+import os, math
 BASE_DIR = os.getcwd()
 DICTIONARY_SOURCE_FILE = "../PasswordDictionary/passwords/combined-withcout.txt.bz2"
 PASSWORD_LEAK   = "../PasswordDictionary/passwords/rockyou-withcount.txt.bz2"
@@ -29,7 +29,7 @@ GRAMMAR_R = 0
 MEMLIMMIT = 1024  # 1024 MB, 1GB
 MIN_COUNT = 10
 PASSWORD_LENGTH = 50
-DEBUG = 1 # 1 S --> we are not getting combined rule like L3,D4 
+DEBUG = 1
 NONTERMINAL = 1
 TERMINAL = 1 - NONTERMINAL
 MAX_INT=4294967295
@@ -37,14 +37,20 @@ MAX_INT=4294967295
 
 # vault size to number map
 # we shall learn it later
-MAX_VAULT_SIZE = 50
+MAX_VAULT_SIZE = 50 
 
 HONEY_VAULT_GRAMMAR_SIZE  = 200   # 400 bytes, 50 integers/rules
 HONEY_VAULT_S1 = 100
 HONEY_VAULT_S2 = 100
 HONEY_VAULT_STORAGE_SIZE = HONEY_VAULT_S1 + HONEY_VAULT_S2
+# TODO: for each password there is 1 byte saying the size of the password 
+# currently '1' or '0' for m/c or human generated pw
+HONEY_VAULT_MACHINE_PASS_SET_SIZE = int(math.ceil(HONEY_VAULT_STORAGE_SIZE/8.0))
 HONEY_VAULT_ENCODING_SIZE = HONEY_VAULT_GRAMMAR_SIZE + \
     HONEY_VAULT_STORAGE_SIZE * PASSWORD_LENGTH
+HONEY_VAULT_TOTAL_CIPHER_SIZE = HONEY_VAULT_ENCODING_SIZE + \
+    int(math.ceil(HONEY_VAULT_MACHINE_PASS_SET_SIZE/4.0)) + \
+    8 # PBKDF1 salt size
 
 SECURITY_PARAM = 16
 SECURITY_PARAM_IN_BASE64 = (SECURITY_PARAM * 4)/3 + 1

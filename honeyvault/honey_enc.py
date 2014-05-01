@@ -66,6 +66,7 @@ class DTE_random(DTE):
                 # 17,            18,               19,                 20
                 ]
     MAX_ALLOWED = 14
+    RANDOM_LEN_PART = MAX_ALLOWED - 8 # 8 is the minimum length of the pass
     
     def __init__(self, size=10):
         self.pw, self.encoding = self.generate_and_encode_password(size)
@@ -143,7 +144,7 @@ class DTE_random(DTE):
         
     def decode_pw(self, N):
         assert len(N) == hny_config.PASSWORD_LENGTH
-        n = N[0] % self.MAX_ALLOWED
+        n = 8 + N[0] % self.RANDOM_LEN_PART # TODO: convert this info to public
         N = N[1:n+2]
         P = [s[N[i]%len(s)] for i,s in enumerate(self.must_set)]
         P.extend(self.All[n%len(self.All)] for n in N[len(self.must_set):-1])
@@ -218,12 +219,12 @@ class DTE_large(DTE):
             stack.extend(t_set)
             print stack, '~~>', head, rule_dict
             n = len(rule_dict.keys())-1
-            code_g.append(vd.encode_vault_size(n))
+            code_g.append(vd.encode_vault_size(head, n))
             if n<0: 
                 print "Sorry I cannot encode your password! Please choose"
                 print "something different, password12"
                 exit(0)
-            assert n == vd.decode_vault_size(code_g[-1])
+            assert n == vd.decode_vault_size(head, code_g[-1])
             code_g.extend([self.encode(head, r) 
                            for r in rule_dict.keys()
                            if r != '__total__'])
@@ -242,7 +243,7 @@ class DTE_large(DTE):
             assert head not in done
             done.append(head)
             p = iterp.next()
-            n = vd.decode_vault_size(p)
+            n = vd.decode_vault_size(head, p)
             # print "RuleSizeDecoding:", head, n
             t_set = []
             for x in range(n):
