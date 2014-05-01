@@ -7,8 +7,7 @@ import json
 from Crypto.Random import random
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from honeyvault_config import MAX_INT
-
+from honeyvault_config import MAX_INT, DEBUG
 from os.path import (expanduser, basename)
 # opens file checking whether it is bz2 compressed or not.
 import tarfile
@@ -57,7 +56,11 @@ def open_(filename, mode='r'):
 
 regex = r'([A-Za-z_]+)|([0-9]+)|(\W+)'
 
+def print_err( *args ):
+    if DEBUG == True:
+        sys.stderr.write(' '.join([str(a) for a in args])+'\n')
 
+    
 def whatchar(c):
     if c.isalpha(): return 'L';
     if c.isdigit():

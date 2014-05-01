@@ -11,7 +11,7 @@ from Crypto.Random import random
 from Crypto.Util import Counter
 from Crypto import Random
 import copy, struct
-from helper.helper import convert2group, open_, getIndex
+from helper.helper import convert2group, open_, getIndex, print_err
 from helper.vault_dist import VaultDistribution
 from collections import OrderedDict
 from array import array
@@ -32,8 +32,8 @@ class HoneyVault:
     s_g = hny_config.HONEY_VAULT_GRAMMAR_SIZE
     s = hny_config.HONEY_VAULT_STORAGE_SIZE
     vault_total_size = hny_config.HONEY_VAULT_ENCODING_SIZE
-    sample = [0,1,2]
-    mpass_set_size = int(math.ceil(s/8))
+    sample = [10,19,20,31]
+    mpass_set_size = hny_config.HONEY_VAULT_MACHINE_PASS_SET_SIZE
 
     def __init__(self, vault_fl, mp):
         self.pcfg = DTE_large()
@@ -43,7 +43,7 @@ class HoneyVault:
         self.mp = mp
         self.initialize_vault(mp)
         self.dte = DTE(self.pcfg.decode_grammar(self.H))
-        # print self.dte.G
+        # print_err (self.dte.G)
         
     def get_domain_index(self, d):
         h = SHA256.new()
@@ -93,27 +93,22 @@ class HoneyVault:
         if ndte != self.dte:
             # if new dte is different then
             for i, p in enumerate(self.S):
-                if self.machine_pass_set[i]:
+                if self.machine_pass_set[i] == '1':
                     continue
                 pw = self.dte.decode_pw(self.S[i])
                 if not pw: continue   # TODO SECURITY
                 self.S[i] = ndte.encode_pw(pw)
             self.H = self.pcfg.encode_grammar(nG)
-            print self.H[:10]
+            print_err(self.H[:10])
             G_ = self.pcfg.decode_grammar(self.H)
-            print "-"*50
-            print "Original: ", nG, '\n', '='*50
-            print "After Decoding:", G_
+            print_err("-"*50)
+            print_err("Original: ", nG, '\n', '='*50)
+            print_err("After Decoding:", G_)
             assert G_ == nG
         for d,p in domain_pw_map.items():
             i = self.get_domain_index(d)
             self.S[i] = ndte.encode_pw(p)
             self.machine_pass_set[i] = '0'
-            # DEBUG
-            #after_decoding = ndte.decode_pw(self.S[self.get_domain_index(d)])
-            #print "Original:", p, "------\tAfterDecodign", after_decoding
-            #assert  after_decoding == p
-            #print "New Grammar:", nG
         self.dte = ndte
         
     def get_password(self, domain_list):
@@ -122,6 +117,7 @@ class HoneyVault:
         for d in domain_list:
             i = self.get_domain_index(d)
             if self.machine_pass_set[i] == '1':
+                print_err("Machine Password")
                 pw = r_dte.decode_pw(self.S[i])
             else:
                 pw = self.dte.decode_pw(self.S[i])

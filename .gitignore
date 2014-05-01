@@ -13,3 +13,4 @@ test/
 honey_venv/
 static/token
 *.swp
+token_*
