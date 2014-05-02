@@ -16,7 +16,7 @@ from collections import deque
 from lexer.pcfg import TrainedGrammar, SubGrammar 
 import honeyvault_config as hny_config
 from helper.helper import getIndex, convert2group
-from helper.vault_dist import VaultDistribution
+from vaultanalysis.vault_dist import VaultDistribution
 from honeyvault_config import NONTERMINAL, TERMINAL
 MAX_INT = hny_config.MAX_INT
 
@@ -248,7 +248,7 @@ class DTE_large(DTE):
             t_set = []
             for x in range(n):
                 rhs = self.decode(head, iterp.next())
-                print "Decoding:", head, '==>', rhs
+                # print "Decoding:", head, '==>', rhs
                 if rhs != '__totoal__':
                     r = filter(lambda x: x not in done+stack, 
                                self.G.get_actual_NonTlist(head, rhs))
@@ -259,7 +259,7 @@ class DTE_large(DTE):
                 g.add_rule(head, rhs)
             t_set.reverse()
             stack.extend(t_set)
-        g.fix_freq()
+        g.finalize() # fixes the freq and some other book keepings
         return g
 
     def update_dte_for_vault(self, G):
