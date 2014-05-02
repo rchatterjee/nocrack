@@ -35,7 +35,6 @@ class GrammarStructure:
                               (lhs, ' | '.join(rhs)) 
                           for lhs, rhs in self.G.items()])
 
-
 class Token:
     def __init__(self, val=None, type_=0, meta=None):
         self.value = val    # string/Token
@@ -318,7 +317,7 @@ class Date:
     yy --> [4-9][0-9] | [0-2][0-9]
     yyyy --> 19[4-9][0-9] | 2[01][0-9][0-9]
     """
-    yy = '([4-9][0-9]|[0-3][0-9])'
+    yy = '([6-9][0-9])'
     yyyy = '(19[4-9][0-9]|20[0-3][0-9])'
     mm   = '(0[0-9]|1[0-2])'
     mon  = '(jan | feb)' # TODO: Not sure how to handle this

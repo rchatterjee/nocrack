@@ -26,7 +26,7 @@ from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
 from collections import OrderedDict, defaultdict
 from pprint import pprint
 import resource  # For checking memory usage
-from lexer import NonT_L
+from lexer import NonT_L, get_nont_class
 
 grammar_file = GRAMMAR_DIR + '/grammar.cfg.bz2'
 
@@ -49,7 +49,11 @@ class TrainedGrammar(object):
                            object_pairs_hook=OrderedDict)
         for k,v in self.G.items():
             v['__total__'] = sum(v.values())
-        self.Wdawg = IntDAWG(self.G['W'].items())
+        Wlist = [x 
+                 for k,v in self.G.items()
+                 for x in v
+                 if k.startswith('W')]
+        self.Wdawg = IntDAWG(Wlist)
 
     def get_prob(self, l, r):
         f = self.G.get(l, {}).get(r, 0)
@@ -61,11 +65,12 @@ class TrainedGrammar(object):
 
     def get_actual_NonTlist(self, lhs, rhs):
         if lhs == 'G':
-            return list(rhs)
+            return rhs.split(',')
         elif lhs in ['L', 'T']:
             return ['%s_%s' % (lhs,c)
                     for c in rhs]
         else:
+            print lhs, rhs
             return []
 
     def get_freq(self, l, r):
@@ -77,7 +82,8 @@ class TrainedGrammar(object):
         if k:
             k = k[0]
             L = NonT_L(k, word)
-            return ('W', [(k, L)], self.get_prob('W', k))
+            sym = 'W%s' % get_nont_class('W', k)
+            return (sym, [(k, L)], self.get_prob(sym, k))
 
     def get_T_rule(self, word):
         T = Date(word)
@@ -91,7 +97,7 @@ class TrainedGrammar(object):
     def get_all_matches(self, word):
         rules = []
         for nt in self.NonT_set:
-            if nt == 'W':
+            if nt.startswith('W'):
                 l = self.get_W_rule(word)
                 if l: rules.append(l)
             elif nt == 'T':
@@ -111,12 +117,13 @@ class TrainedGrammar(object):
             not s[0].startswith('L_') and
             not r[0].startswith('T_') and
             not s[0].startswith('T_') ):
-            k = r[0] + s[0]
+            k = ','.join([r[0],s[0]])
             p = r[-1] * s[-1]
             a = r[1] + s[1]
             return (k, a, p)
 
     def parse(self, word):
+        
         A = {}
         for j in range(len(word)):
             for i in range(len(word)-j):
@@ -140,10 +147,10 @@ class TrainedGrammar(object):
             print "Failing at ", word.encode('utf-8')
             return pt
         pt.add_rule(('G', p[0]))
-        for l, each_r in zip(p[0], p[1]):
+        for l, each_r in zip(p[0].split(','), p[1]):
             if isinstance(each_r, basestring):
                 pt.add_rule((l, each_r))
-            elif l == 'W':
+            elif l.startswith('W'):
                 pt.add_rule((l, each_r[0]))
                 L_parse_tree = each_r[1].parse_tree()
                 pt.add_rule(L_parse_tree[0])
@@ -151,7 +158,7 @@ class TrainedGrammar(object):
                     pt.tree.extend(L_parse_tree[1][1])
             elif l == 'T':
                 p = each_r[1].parse_tree()
-                rule_name = ''.join([r[0].replace('T_','')
+                rule_name = ','.join([r[0].replace('T_','')
                                      for r in p])
                 pt.add_rule((l, rule_name))
                 pt.extend_rule(p)
@@ -170,9 +177,9 @@ class TrainedGrammar(object):
         rhs_dict = self.G[l]
         i = rhs_dict.keys().index(r)
         assert i >= 0
-        l = sum(rhs_dict.values()[:i])
-        r = l + rhs_dict[r]
-        return convert2group(random.randint(l,r),
+        l_pt = sum(rhs_dict.values()[:i])
+        r_pt = l_pt + rhs_dict[r]
+        return convert2group(random.randint(l_pt,r_pt),
                              rhs_dict['__total__'])
 
     def encode_pw(self, pw):
@@ -212,11 +219,11 @@ class TrainedGrammar(object):
             lhs = stack.pop()
             rhs = self.decode_rule(lhs, iterp.next())
             if lhs in ['G', 'T']:
-                arr = list(rhs) if lhs == 'G' \
+                arr = rhs.split(',') if lhs == 'G' \
                     else ['T_%s'% c for c in rhs]
                 arr.reverse()
                 stack.extend(arr)
-            elif lhs == 'W':
+            elif lhs.startswith('W'):
                 rhs = self.decode_l33t(rhs, iterp)
                 plaintext += rhs
             else:
@@ -252,7 +259,11 @@ class SubGrammar(TrainedGrammar):
         self.NonT_set = filter(lambda x: x.find('_') < 0,  
                                self.G.keys()) + 'Yymd'.split()
         self.G = self.R.G
-        self.Wdawg = IntDAWG(self.G['W'].items())
+        Wlist = [x 
+                 for k,v in self.G.items()
+                 for x in v
+                 if k.startswith('W')]
+        self.Wdawg = IntDAWG(Wlist)
         self.freeze = True
 
     def reset(self):
@@ -293,6 +304,8 @@ if __name__=='__main__':
         code_g =  tg.encode_pw(sys.argv[2])
         print code_g
         print tg.decode_pw(code_g)
+    elif sys.argv[1] == '-parse':
+        print tg.parse(sys.argv[2])
     elif sys.argv[1] == '-vault':
         g = SubGrammar(tg, sys.argv[2:])
         print g

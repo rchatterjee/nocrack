@@ -248,7 +248,7 @@ class DTE_large(DTE):
             t_set = []
             for x in range(n):
                 rhs = self.decode(head, iterp.next())
-                # print "Decoding:", head, '==>', rhs
+                print "Decoding:", head, '==>', rhs
                 if rhs != '__totoal__':
                     r = filter(lambda x: x not in done+stack, 
                                self.G.get_actual_NonTlist(head, rhs))
