@@ -12,8 +12,11 @@ from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
 from collections import OrderedDict, defaultdict
 from pprint import pprint
 from lexer.pcfg import TrainedGrammar, SubGrammar
+from lexer.lexer import NonT_length2classmap as ntlm
 
-NT =  ['G', 'R', 'W', 'Y', 'D', 'T', 'T_y', 'T_Y', 'T_m', 'T_d']
+NT =  ['G', 'R', 'T', 'T_y', 'T_Y', 'T_m', 'T_d']
+NT.extend(["%s%s" % (nt, l) for nt,v in ntlm.items()
+           for l in v.keys()])
 
 def cal_size_subG(base_pcfg, vault_set_file):
     tdata = [(k,filter(lambda x: x, v)) 
