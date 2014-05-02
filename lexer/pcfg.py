@@ -70,7 +70,6 @@ class TrainedGrammar(object):
             return ['%s_%s' % (lhs,c)
                     for c in rhs]
         else:
-            print lhs, rhs
             return []
 
     def get_freq(self, l, r):
