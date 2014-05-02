@@ -13,7 +13,7 @@ from collections import OrderedDict, defaultdict
 from pprint import pprint
 from lexer.pcfg import TrainedGrammar, SubGrammar
 
-NT =  ['G', 'W', 'Y', 'D', 'T', 'T_y', 'T_Y', 'T_m', 'T_d']
+NT =  ['G', 'R', 'W', 'Y', 'D', 'T', 'T_y', 'T_Y', 'T_m', 'T_d']
 
 def cal_size_subG(base_pcfg, vault_set_file):
     tdata = [(k,filter(lambda x: x, v)) 
@@ -49,12 +49,14 @@ def draw(G, fname='plot.png'):
     pylab.savefig(fname)
     pylab.close()
 
-def cal_stat( *fnames ):
+def cal_stat( fds=[], fnames=[] ):
     V = {}
     R = [[] for n in NT]
-    for fn in fnames:
-        print fn
-        for k,v in json.load(open_(fn),
+    if not fds:
+        fds = [open_(f) for f in fnames]
+    for fn in fds:
+        print fn.name
+        for k,v in json.load(fn,
                              object_pairs_hook=OrderedDict).items():
             if v['length']>50: continue
             k = ','.join(str(x) for x in [ v["length"]]+ \
@@ -85,4 +87,18 @@ if __name__=="__main__":
         tg = TrainedGrammar()
         print json.dumps(cal_size_subG(tg, sys.argv[2]), indent=2)
     elif sys.argv[1] == '-stat':
-        cal_stat(*sys.argv[2:])
+        # give the vaultcleaned files, 
+        cal_stat(fnames=sys.argv[2:])
+    elif sys.argv[1] == '-default':
+        tg = TrainedGrammar()
+        files = ["data_vault/%s_vaultcleaned.json" % x 
+                 for x in ['joe', 'weir']]
+        G = {}
+        for f in files:
+            G.update(cal_size_subG(tg, f))
+        f = os.tmpfile()
+        json.dump(G, f)
+        f.seek(0)
+        cal_stat(fds=[f])
+        f.close()
+        
