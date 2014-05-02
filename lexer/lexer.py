@@ -31,6 +31,20 @@ import resource  # For checking memory usage
 # facebook-firstnames-withcount.dawg
 # facebook-lastnames-withcount.dawg            
 
+
+NonT_length2classmap = {
+    "W": {"1": [1, 2], "2": [3, 3], "3": [4, 4], "4": [5, 5], "5": [6, 6], 
+          "6": [7, 7], "7": [8, 8], "8": [9, 9], "9": [9, 30]},
+    "D": {"1": [1, 1], "2": [2, 3], "3": [4, 6], "4": [7, 9], "5": [10, 30]},
+    "Y": {"1": [1, 1], "2": [2, 30]}
+    }
+def get_nont_class(nt, word):
+    A = NonT_length2classmap.get(nt, {})
+    n = len(word)
+    for k,v in A.items():
+        if n>=v[0] and n<=v[1]:
+            return k
+
 class NonT(object): # baseclass
     def __init__(self):
         #self.sym = 'G'
@@ -148,18 +162,19 @@ class NonT_W(NonT):
             v = v[0]
             f = sum([d[0][v] for d in dawg])
             self.prod = v
+            self.sym  = 'W%s' % get_nont_class('W', v)
             self.L = NonT_L(v, word)
             self.prob = self.L.prob * float(f)/self.total_f 
 
     def parse_tree(self):
         pt = ParseTree()
-        pt.add_rule(('W', self.prod))
+        pt.add_rule((self.sym, self.prod))
         pt.extend_rule(self.L.parse_tree())
         return pt
 
     def rule_set(self):
         rs = RuleSet()
-        rs.add_rule('W', self.prod)
+        rs.add_rule(self.sym, self.prod)
         rs.update_set(self.L.rule_set())
         return rs
 
@@ -174,6 +189,7 @@ class NonT_D(NonT):
         if w.isdigit():
             self.prod = w
             self.prob = 0.001
+            self.sym  = 'D%s' % get_nont_class('D', w)
         d = Date(w)
         if d:
             self.sym = 'T'
@@ -220,13 +236,15 @@ class NonT_Y(NonT):
         if re.match(self.regex, word):
             self.prod = word
             self.prob = 0.01
+            self.sym = 'Y%s' % get_nont_class('Y', word)
+
 
 class NonT_combined(NonT):
     sym, prod, prob = 'C', '', 0.0
     def __init__(self, *nont_set):
         for p in nont_set:
-            if not p: return 
-        self.sym = ''.join([x.symbol() for x in nont_set])
+            if not p: return
+        self.sym = ','.join([x.symbol() for x in nont_set])
         self.prod = []
         for p in nont_set:
             if isinstance(p.production(), list):
