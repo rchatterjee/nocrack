@@ -217,7 +217,6 @@ class DTE_large(DTE):
                                 t_set.append(x)
             t_set.reverse()
             stack.extend(t_set)
-            print stack, '~~>', head, rule_dict
             n = len(rule_dict.keys())-1
             code_g.append(vd.encode_vault_size(head, n))
             if n<0: 
