@@ -111,11 +111,9 @@ class TrainedGrammar(object):
             return max(rules, key=lambda x: x[-1])
 
     def join(self, r, s):
-        if (r and s and
-            not r[0].startswith('L_') and
-            not s[0].startswith('L_') and
-            not r[0].startswith('T_') and
-            not s[0].startswith('T_') ):
+        not_startswith_L_T = lambda x: x and \
+            not (x.startswith('L_') or x.startswith('T_'))
+        if not_startswith_L_T(s[0]) and not_startswith_L_T(r[0]):
             k = ','.join([r[0],s[0]])
             p = r[-1] * s[-1]
             a = r[1] + s[1]
