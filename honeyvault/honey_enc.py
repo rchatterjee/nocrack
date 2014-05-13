@@ -28,7 +28,7 @@ class DTE(object):
     def __init__(self, grammar=None):
         self.G = grammar
         if not self.G:
-            self.G = TrainedGrammar()
+            self.G = SubGrammar()
             # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
@@ -50,7 +50,11 @@ class DTE(object):
 
     def __eq__(self, o_dte):
         return self.G == o_dte.G
-
+        
+    def __nonzero__(self):
+        print "DTE zero:", self.G.is_grammar()
+        return self.G.is_grammar()
+    
 
 class DTE_random(DTE):
     punct = "!@#%&*_+=~"
@@ -162,21 +166,21 @@ class DTE_random(DTE):
         1 digit
         1 punc
         """
-        get_rand = lambda L, c: [random.choice(L) for i in range(c)]
-        P = [get_rand(g, 1) for g in self.must_set]
-        P.extend([random.choice(self.All) for i in range(size - len(P))])
-        n = random.randint(0, fact_map[size-1])
-        return n, decode2string(n, P)
-
+        P = [random.choice(s) for s in self.must_set]
+        P.extend([random.choice(self.All) 
+                  for n in range(size-len(self.must_set))])
+        n = random.randint(0, MAX_INT) 
+        password = self.decode2string(n, P)
+        return password
 
 class DTE_large(DTE):
     """
     encodes a rule
     """
-    def __init__(self, grammar=None):
+    def __init__(self, grammar=None, cal_cdf=False):
         self.G = grammar
         if not self.G:
-            self.G = TrainedGrammar()
+            self.G = TrainedGrammar(cal_cdf=cal_cdf)
             # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
@@ -243,11 +247,11 @@ class DTE_large(DTE):
             done.append(head)
             p = iterp.next()
             n = vd.decode_vault_size(head, p)
-            # print "RuleSizeDecoding:", head, n
+            #print "RuleSizeDecoding:", head, n
             t_set = []
             for x in range(n):
                 rhs = self.decode(head, iterp.next())
-                # print "Decoding:", head, '==>', rhs
+                print "Decoding:", stack, head, '==>', rhs
                 if rhs != '__totoal__':
                     r = filter(lambda x: x not in done+stack, 
                                self.G.get_actual_NonTlist(head, rhs))
@@ -260,12 +264,6 @@ class DTE_large(DTE):
             stack.extend(t_set)
         g.finalize() # fixes the freq and some other book keepings
         return g
-
-    def update_dte_for_vault(self, G):
-        self.term_files_bak = self.term_files
-        self.G_bak = self.G.G
-        self.term_files = {}
-        self.G.G = G;
         
         
 def getVal( arr, val ):
