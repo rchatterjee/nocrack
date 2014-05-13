@@ -243,8 +243,20 @@ def default( *args ):
                     if k != '-help' )
     return "Write any of the option to know about their requirements!"
     
-def test_getpass():
-    for l in open('password_leak_store/myspace-withcount.txt'):
+def test_getpass(*args):
+    h_string =  """
+export the vault, 
+NOTE: this might generate some extra password which does not belong to you.
+Dont panic, those are randomly generated for security purpose. 
+Also for s2 part we need the cache, if it is not complete you will miss
+some in the export file, though password is there in the vault.
+./honey_client -export <master-password>
+e.g. ./honey_client -export AwesomeS@la
+"""
+    if len(args)<1:
+        return h_string
+    for i,l in open('password_leak_store/myspace-withcount.txt'):
+        if i>cnt: break
         if l and len(l.split())>1:
             print l,
             l = l.strip().split()
