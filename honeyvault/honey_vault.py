@@ -42,7 +42,7 @@ class HoneyVault:
         self.mp = mp
         self.initialize_vault(mp)
         self.dte = DTE(self.pcfg.decode_grammar(self.H))
-        # print_err (self.dte.G)
+        #print_err (self.dte.G)
         
     def get_domain_index(self, d):
         h = SHA256.new()
@@ -86,7 +86,7 @@ class HoneyVault:
         return OrderedDict(zip(domain_list, reply))
     
     def add_password(self, domain_pw_map):
-        print self.dte.G
+        #print self.dte.G
         nG = copy.deepcopy(self.dte.G)
         nG.update_grammar(*(domain_pw_map.values()))
         ndte = DTE(nG)
@@ -99,11 +99,11 @@ class HoneyVault:
                 if not pw: continue   # TODO SECURITY
                 self.S[i] = ndte.encode_pw(pw)
             self.H = self.pcfg.encode_grammar(nG)
-            print_err(self.H[:10])
+            #print_err(self.H[:10])
             G_ = self.pcfg.decode_grammar(self.H)
-            print_err("-"*50)
-            print_err("Original: ", nG, '\n', '='*50)
-            print_err("After Decoding:", G_)
+            #print_err("-"*50)
+            #print_err("Original: ", nG, '\n', '='*50)
+            #print_err("After Decoding:", G_)
             assert G_ == nG
         for d,p in domain_pw_map.items():
             i = self.get_domain_index(d)

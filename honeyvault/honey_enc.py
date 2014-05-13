@@ -52,7 +52,6 @@ class DTE(object):
         return self.G == o_dte.G
         
     def __nonzero__(self):
-        print "DTE zero:", self.G.is_grammar()
         return self.G.is_grammar()
     
 
@@ -251,7 +250,7 @@ class DTE_large(DTE):
             t_set = []
             for x in range(n):
                 rhs = self.decode(head, iterp.next())
-                print "Decoding:", stack, head, '==>', rhs
+                #print "Decoding:", stack, head, '==>', rhs
                 if rhs != '__totoal__':
                     r = filter(lambda x: x not in done+stack, 
                                self.G.get_actual_NonTlist(head, rhs))
