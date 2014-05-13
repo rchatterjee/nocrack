@@ -18,7 +18,7 @@ from dawg import IntDAWG, DAWG
 import marisa_trie
 import struct, json, bz2, re
 from lexer_helper import Date, KeyBoard, RuleSet, ParseTree
-from helper.helper import open_, getIndex, convert2group
+from helper.helper import open_, getIndex, convert2group, bin_search, print_once
 from Crypto.Random import random
 import honeyvault_config as hny_config
 from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
@@ -39,7 +39,8 @@ class TrainedGrammar(object):
             'z':'s'
             })
 
-    def __init__(self, g_file=grammar_file):
+    def __init__(self, g_file=grammar_file, cal_cdf=False):
+        self.cal_cdf = cal_cdf
         self.load(g_file)
         self.NonT_set = filter(lambda x: x.find('_') < 0,  
                                self.G.keys())
@@ -48,11 +49,19 @@ class TrainedGrammar(object):
         self.G = json.load(open_(filename),
                            object_pairs_hook=OrderedDict)
         for k,v in self.G.items():
-            v['__total__'] = sum(v.values())
+            if self.cal_cdf:
+                lf = 0
+                for l,f in v.items():
+                    v[l] += lf
+                    lf += f
+                v['__total__'] = lf
+            else:
+                v['__total__'] = sum(v.values())
         Wlist = [x 
                  for k,v in self.G.items()
                  for x in v
                  if k.startswith('W')]
+        self.date = Date()
         self.Wdawg = IntDAWG(Wlist)
 
     def get_prob(self, l, r):
@@ -62,11 +71,14 @@ class TrainedGrammar(object):
 
     def isNonTerm(self, lhs): # this means given lhs, rhs will be in NonT 
         return lhs in self.NonT_set
-
+        
     def get_actual_NonTlist(self, lhs, rhs):
         if lhs == 'G':
             return rhs.split(',')
-        elif lhs in ['L', 'T']:
+        elif lhs == 'T':
+            return ['%s_%s' % (lhs,c)
+                    for c in rhs.split(',')]
+        elif lhs == 'L':
             return ['%s_%s' % (lhs,c)
                     for c in rhs]
         else:
@@ -85,7 +97,7 @@ class TrainedGrammar(object):
             return (sym, [(k, L)], self.get_prob(sym, k))
 
     def get_T_rule(self, word):
-        T = Date(word)
+        T = self.date.IsDate(word)
         if T:
             p = 10**(len(word)-8)
             # for r in T.tree:
@@ -112,15 +124,14 @@ class TrainedGrammar(object):
 
     def join(self, r, s):
         not_startswith_L_T = lambda x: x and \
-            not (x.startswith('L_') or x.startswith('T_'))
-        if not_startswith_L_T(s[0]) and not_startswith_L_T(r[0]):
+            not (x[0].startswith('L_') or x[0].startswith('T_'))
+        if not_startswith_L_T(s) and not_startswith_L_T(r):
             k = ','.join([r[0],s[0]])
             p = r[-1] * s[-1]
             a = r[1] + s[1]
             return (k, a, p)
 
-    def parse(self, word):
-        
+    def parse(self, word):        
         A = {}
         for j in range(len(word)):
             for i in range(len(word)-j):
@@ -154,7 +165,7 @@ class TrainedGrammar(object):
                 if len(L_parse_tree.tree)>1:
                     pt.tree.extend(L_parse_tree[1][1])
             elif l == 'T':
-                p = each_r[1].parse_tree()
+                p = each_r[1]
                 rule_name = ','.join([r[0].replace('T_','')
                                      for r in p])
                 pt.add_rule((l, rule_name))
@@ -180,6 +191,7 @@ class TrainedGrammar(object):
                              rhs_dict['__total__'])
 
     def encode_pw(self, pw):
+        print "Encode_pw:", pw
         pt = self.l_parse_tree(pw)
         code_g = [self.encode_rule(*p)
                   for p in pt]
@@ -190,6 +202,9 @@ class TrainedGrammar(object):
     def decode_rule(self, l, p):
         rhs_dict = self.G[l]
         p %= rhs_dict['__total__']
+        if self.cal_cdf:
+            if len(rhs_dict)>1000: print_once(l, len(rhs_dict))
+            return bin_search(rhs_dict.items(), p, 0, len(rhs_dict))
         for k,v in rhs_dict.items():
             if p<v:
                 return k
@@ -217,7 +232,7 @@ class TrainedGrammar(object):
             rhs = self.decode_rule(lhs, iterp.next())
             if lhs in ['G', 'T']:
                 arr = rhs.split(',') if lhs == 'G' \
-                    else ['T_%s'% c for c in rhs]
+                    else ['T_%s'% c for c in rhs.split(',')]
                 arr.reverse()
                 stack.extend(arr)
             elif lhs.startswith('W'):
@@ -233,9 +248,15 @@ class TrainedGrammar(object):
     def __contains__(self, k):
         return k in self.G
 
+    def is_grammar(self):
+        return bool(self.G['G'])
+    # def __nonzero__(self):
+    #     return bool(self.G['G'])
+    # __bool__ = __nonzero__
 
 class SubGrammar(TrainedGrammar):
     def __init__(self, base_pcfg):
+        self.cal_cdf = False
         R = RuleSet()
         self.base_pcfg = base_pcfg
         R.update_set(RuleSet(d={'L': self.base_pcfg['L']}))
@@ -244,6 +265,7 @@ class SubGrammar(TrainedGrammar):
             R.update_set(RuleSet(d={x: self.base_pcfg[x]}))
         self.R = R
         self.G = R.G
+        self.date = Date()
         self.freeze = False
 
     def add_rule(self, l, r):
@@ -254,13 +276,19 @@ class SubGrammar(TrainedGrammar):
     def finalize(self):
         self.fix_freq()
         self.NonT_set = filter(lambda x: x.find('_') < 0,  
-                               self.G.keys()) + 'Yymd'.split()
+                               self.G.keys()) #+ list('Yymd')
         self.G = self.R.G
         Wlist = [x 
                  for k,v in self.G.items()
                  for x in v
                  if k.startswith('W')]
         self.Wdawg = IntDAWG(Wlist)
+        print "'T' in G!", self.G['T']
+        self.date = Date(T_rules=[x 
+                                  for x in self.G.get('T',
+                                                      OrderedDict()).keys()
+                                  if x != '__total__'])
+        
         self.freeze = True
 
     def reset(self):

@@ -34,7 +34,7 @@ class VaultDistribution:
         cf %= self.G[lhs]['__total__']
         if cf == 0 and lhs == 'G':
             print_err("Grammar of size 0!!!!", lhs, cf)
-            return cf
+            #return cf
         i = getIndex(cf, self.G[lhs].values())
         return i+1
 
