@@ -340,11 +340,35 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
     # TODO: randomize the ordering of mm and dd, 
     # Secuirty concern
 
-    def __init__(self, word=None):
+    def __init__(self, word=None, T_rules=None):
         #self.date += "|(?P<mobno>\(\d{3}\)-\d{3}-\d{4}|\d{10}))(?P<postfix>\D*$)"
         self.date = {}
         if word:
-            self.date = self.IsDate(word)
+            self.set_date(word)
+        if T_rules:
+            self.update_date_regex(T_rules)
+
+    def set_date(date_W):
+        self.date = self.IsDate(date_w)
+
+    def update_date_regex(self, T_rules):
+        # customized Date regex
+        regex = '^(?P<date>%s)' % \
+                ('|'.join(['(?P<%s>%s)' % \
+                           (r.replace(',',''), 
+                            ''.join([self.regexes(x)
+                                     for x in r.split(',')]))
+                           for r in T_rules])
+             )
+        self.date_regex = re.compile(regex)
+        print regex
+        
+    def regexes(self, sym):
+        D = {'m': 'mm',
+             'y': 'yy',
+             'Y': 'yyyy',
+             'd': 'dd'}
+        return eval('self.'+D[sym])
 
     def symbol(self):
         return 'T'
@@ -358,6 +382,7 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
         return ''
 
     def parse_tree(self):
+        print self.date
         return self.date
 
     def rule_set(self):
@@ -381,6 +406,9 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
             v = v[self.length(l):]
         return x
 
+    def __deepcopy__(self, memo):
+        return self
+
     def __nonzero__(self):
         return bool(self.date)
     __bool__ = __nonzero__
@@ -389,4 +417,5 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
         return str(self.date)
 
 if __name__ == "__main__":
-    print GrammarStructure().getTermFiles()
+    #print GrammarStructure().getTermFiles()
+    print Date(T_rules=['Y,m,d'], word='20131026')

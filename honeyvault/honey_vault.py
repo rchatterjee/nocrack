@@ -3,7 +3,6 @@ BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from honey_enc import DTE, DTE_large, DTE_random
 import honeyvault_config as hny_config
-from lexer.pcfg import TrainedGrammar 
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
@@ -64,7 +63,7 @@ class HoneyVault:
             self.S = [[convert2group(0,1) 
                        for i in range(hny_config.PASSWORD_LENGTH)] 
                       for x in range(self.s)]
-            self.H[0] = vd.encode_vault_size(0)
+            #self.H[0] = vd.encode_vault_size(0)
             self.machine_pass_set = [
                 '1' if random.randint(0,1000) < hny_config.MACHINE_GENRATED_PASS_PROB
                 else '0'
@@ -87,10 +86,11 @@ class HoneyVault:
         return OrderedDict(zip(domain_list, reply))
     
     def add_password(self, domain_pw_map):
+        print self.dte.G
         nG = copy.deepcopy(self.dte.G)
         nG.update_grammar(*(domain_pw_map.values()))
         ndte = DTE(nG)
-        if ndte != self.dte:
+        if self.dte and (ndte != self.dte):
             # if new dte is different then
             for i, p in enumerate(self.S):
                 if self.machine_pass_set[i] == '1':
