@@ -191,7 +191,6 @@ class TrainedGrammar(object):
                              rhs_dict['__total__'])
 
     def encode_pw(self, pw):
-        print "Encode_pw:", pw
         pt = self.l_parse_tree(pw)
         code_g = [self.encode_rule(*p)
                   for p in pt]
@@ -283,12 +282,10 @@ class SubGrammar(TrainedGrammar):
                  for x in v
                  if k.startswith('W')]
         self.Wdawg = IntDAWG(Wlist)
-        print "'T' in G!", self.G['T']
-        self.date = Date(T_rules=[x 
-                                  for x in self.G.get('T',
-                                                      OrderedDict()).keys()
-                                  if x != '__total__'])
-        
+        if 'T' in self.G:
+            self.date = Date(T_rules=[x 
+                                      for x in self.G['T'].keys()
+                                      if x != '__total__'])
         self.freeze = True
 
     def reset(self):
