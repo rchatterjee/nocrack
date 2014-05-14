@@ -34,14 +34,10 @@ TERMINAL = 1 - NONTERMINAL
 MAX_INT=4294967295
 
 
-# vault size to number map
-# we shall learn it later
-MAX_VAULT_SIZE = 50 
-
 PASSWORD_LENGTH = 50 # length of the password encoding
 HONEY_VAULT_GRAMMAR_SIZE  = 200   # 400 bytes, 50 integers/rules
-HONEY_VAULT_S1 = 100
-HONEY_VAULT_S2 = 100
+HONEY_VAULT_S1 = 10000
+HONEY_VAULT_S2 = 10000
 HONEY_VAULT_STORAGE_SIZE = HONEY_VAULT_S1 + HONEY_VAULT_S2
 # TODO: for each password there is 1 byte saying the size of the password 
 # currently '1' or '0' for m/c or human generated pw
@@ -56,7 +52,7 @@ SECURITY_PARAM = 16
 SECURITY_PARAM_IN_BASE64 = (SECURITY_PARAM * 4)/3 + 1
 
 # Static domain mapping list
-STATIC_DOMAIN_LIST = 'static_domain_map.txt'
+STATIC_DOMAIN_LIST = 'server/static_domain_map.txt'
 STATIC_DOMAIN_HASH_LIST = 'static/static_domain_hashes.txt'
 
 
