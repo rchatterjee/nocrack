@@ -10,10 +10,11 @@ from Crypto.Random import random
 from Crypto.Util import Counter
 from Crypto import Random
 import copy, struct
-from helper.helper import convert2group, open_, getIndex, print_err
+from helper.helper import convert2group, open_, getIndex, print_err, ProcessParallel
 from helper.vault_dist import VaultDistribution
 from collections import OrderedDict
 from array import array
+from pprint import pprint
 
 rnd_source = Random.new()
 MAX_INT = hny_config.MAX_INT
@@ -25,6 +26,14 @@ def do_crypto_setup(mp, salt = b'madhubala'):
     aes = AES.new(key, AES.MODE_CTR, counter=ctr)
     return aes 
 
+def copy_from_old_parallel( args ):
+    Random.atfork()
+    odte, ndte, i, S = args
+    ret = []
+    pw = odte.decode_pw(S)
+    if not pw: return (i,[])
+    return (i,ndte.encode_pw(pw))
+        
 class HoneyVault:
     s1 = hny_config.HONEY_VAULT_S1
     s2 = hny_config.HONEY_VAULT_S2
@@ -49,7 +58,10 @@ class HoneyVault:
         h.update(d)
         d_hash = h.hexdigest()[:32]
         try:
-            return self.domain_hash_map[d_hash]
+            i = self.domain_hash_map[d_hash]
+            if i>self.s1: 
+                raise KeyError;
+            else: return i
         except KeyError:
             sys.stderr.write('WARNING! S1 miss for %s\n' % d)
             x = struct.unpack('8I', h.digest())[0]
@@ -58,16 +70,24 @@ class HoneyVault:
     def initialize_vault(self, mp):
         vd = VaultDistribution()
         if not os.path.exists(self.vault_fl):
-            self.H = [convert2group(0,1) 
-                      for x in range(self.s_g)]
-            self.S = [[convert2group(0,1) 
-                       for i in range(hny_config.PASSWORD_LENGTH)] 
-                      for x in range(self.s)]
-            #self.H[0] = vd.encode_vault_size(0)
-            self.machine_pass_set = [
-                '1' if random.randint(0,1000) < hny_config.MACHINE_GENRATED_PASS_PROB
-                else '0'
-                for x in range(self.mpass_set_size*8)]
+            buf = rnd_source.read(hny_config.HONEY_VAULT_ENCODING_SIZE * 4)
+            t_s = struct.unpack(
+                '!%sI' % hny_config.HONEY_VAULT_ENCODING_SIZE, buf)
+            self.H = t_s[:hny_config.HONEY_VAULT_GRAMMAR_SIZE]
+            t_s = t_s[hny_config.HONEY_VAULT_GRAMMAR_SIZE:]
+            self.S = [t_s[i*hny_config.PASSWORD_LENGTH:(i+1)*hny_config.PASSWORD_LENGTH]
+                      for i in range(self.s)]
+            #buf = struct.unpack('!%sI' % self.mpass_set_size, rnd_source.read(self.mpass_set_size))
+            # self.machine_pass_set = \
+            #     list(''.join(["{0:08b}".format(x) 
+            #                   for x in struct.unpack(
+            #                     "%sB" % self.mpass_set_size, buf)]))
+            # assert len(self.machine_pass_set) >= len(self.S)
+            self.machine_pass_set = list('0'*(self.mpass_set_size*8))
+            k = int(math.ceil(hny_config.HONEY_VAULT_STORAGE_SIZE * \
+                                  hny_config.MACHINE_GENRATED_PASS_PROB/1000.0))
+            for i in random.sample(range(hny_config.HONEY_VAULT_STORAGE_SIZE), k):
+                self.machine_pass_set[i] = '1'
             self.salt = rnd_source.read(8)
             self.save(mp)
         else:
@@ -92,12 +112,12 @@ class HoneyVault:
         ndte = DTE(nG)
         if self.dte and (ndte != self.dte):
             # if new dte is different then
-            for i, p in enumerate(self.S):
-                if self.machine_pass_set[i] == '1':
-                    continue
-                pw = self.dte.decode_pw(self.S[i])
-                if not pw: continue   # TODO SECURITY
-                self.S[i] = ndte.encode_pw(pw)
+            data = [(self.dte, ndte, i, p)
+                        for i,p in enumerate(self.S)
+                        if self.machine_pass_set[i] == '0']            
+            result = ProcessParallel(copy_from_old_parallel, data, func_load=100)
+            for i, p in enumerate(result):
+                self.S[i] = p
             self.H = self.pcfg.encode_grammar(nG)
             #print_err(self.H[:10])
             G_ = self.pcfg.decode_grammar(self.H)
@@ -123,7 +143,7 @@ class HoneyVault:
                 pw = self.dte.decode_pw(self.S[i])
             pw_list.append(pw)
         return OrderedDict(zip(domain_list, pw_list)) 
-    
+
     def get_sample_decoding(self):
         """
         check some of the sample decoding to make sure you are

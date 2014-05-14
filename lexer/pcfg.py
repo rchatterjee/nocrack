@@ -50,6 +50,7 @@ class TrainedGrammar(object):
                            object_pairs_hook=OrderedDict)
         for k,v in self.G.items():
             if self.cal_cdf:
+                print_err("Calculating CDF!")
                 lf = 0
                 for l,f in v.items():
                     v[l] += lf
