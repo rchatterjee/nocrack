@@ -30,6 +30,10 @@ def get_exact_domain( args ):
         ret.append(psl.get_public_suffix(h))
     return ret
 
+def get_exact_domains( urllist ):
+    return [get_exact_domain(url) 
+            for url in urllist]
+
 def hash_mp(mp):
     h = SHA256.new()
     h.update(mp)
@@ -174,9 +178,8 @@ e.g. ./honey_client -addpass AwesomeS@la google.com
         return h_string
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
-    return json.dumps(hv.get_password(get_exact_domain(args[1:])),
-                     indent=2)
-                   
+    return hv.get_password(get_exact_domains(args[1:]))
+
 
 def import_vault( *args ):
     h_string =  """
