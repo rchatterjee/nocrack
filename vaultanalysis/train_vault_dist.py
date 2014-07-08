@@ -95,7 +95,7 @@ if __name__=="__main__":
     elif sys.argv[1] == '-default':
         tg = TrainedGrammar()
         files = ["data_vault/%s_vaultcleaned.json" % x 
-                 for x in ['joe', 'weir']]
+                 for x in ['joe', 'weir'][:1]]
         G = {}
         for f in files:
             G.update(cal_size_subG(tg, f))
