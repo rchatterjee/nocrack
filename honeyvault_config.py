@@ -31,7 +31,11 @@ MIN_COUNT = 10
 DEBUG = 1
 NONTERMINAL = 1
 TERMINAL = 1 - NONTERMINAL
-MAX_INT=4294967295
+
+REPR_SIZE = 4 # number of bytes to represent an integer. normally 4byte.
+              # but we might go for higher values for better security. 
+
+MAX_INT = 256**REPR_SIZE # value of maximum integer in this representation.
 
 
 PASSWORD_LENGTH = 50 # length of the password encoding
