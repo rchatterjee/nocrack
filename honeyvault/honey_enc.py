@@ -8,7 +8,6 @@ it needs a PCFG in the following format.
 import sys, os, math, struct, bz2, resource
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from io import BytesIO
 import string
 from Crypto.Random import random
 import marisa_trie

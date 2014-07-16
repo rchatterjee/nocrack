@@ -346,7 +346,7 @@ def buildpcfg(passwd_dictionary, start=0, end=-1):
 def wraper_buildpcfg( args ):
     return buildpcfg( *args )
 
-def parallal_buildpcfg(password_dictionary):
+def parallel_buildpcfg(password_dictionary):
     from multiprocessing import Pool
     p = Pool()
     Complete_grammar = RuleSet()
@@ -364,7 +364,7 @@ if __name__ == "__main__":
     if sys.argv[1] == '-buildG':
         print buildpcfg(sys.argv[2], 0, 100)
     elif sys.argv[1] == '-buildparallelG':
-        parallal_buildpcfg(sys.argv[2])
+        parallel_buildpcfg(sys.argv[2])
     elif sys.argv[1]=='-file':
         R = RuleSet()
         with open_(sys.argv[2]) as f:
