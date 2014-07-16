@@ -1,4 +1,4 @@
-import re, json
+import re, json, string
 from collections import OrderedDict, defaultdict
 
 class GrammarStructure:
@@ -163,6 +163,10 @@ class RuleSet(object):
         return key
 
     def save(self, outf):
+        #sanity check
+        for c in string.ascii_lowercase:
+            k = 'L_%s' % c
+            self.G[k] = self.G.get(k, {c:1, c.upper(): 1})
         json.dump(self.G, outf, sort_keys=True,
                   separators=(',', ':'), indent=2)
 
