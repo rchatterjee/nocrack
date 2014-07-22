@@ -1,0 +1,95 @@
+==================== *Usage* ==================
+
+Requirements:
+--------------
+# python 2.7 or more, if your python does not meet the requirement, please use the 
+following link to install it locally:
+ - http://stackoverflow.com/a/5507373/1792013
+
+# for python 2.6, try running after installing 'simplejson'
+ $ pip install simplejson
+
+# Dont forget to activate your virtualvenv
+$ source honeyvenv/bin/activate
+(honeyvenv) $
+
+
+How to run?
+-----------
+(honeyvenv) $ ./honey_client [OPTION] [parameters]
+
+(honeyvenv) $ ./honey_client
+-getpass - <function get_pass at 0x1aad0c8>
+-import - <function import_vault at 0x1aad140>
+-refresh - <function refresh at 0x1aa8ed8>
+-genpass - <function gen_pass at 0x1aad230>
+-read - <function read at 0x1aa8e60>
+-getdomainhash - <function get_static_domains at 0x1aa8f50>
+-register - <function register at 0x1aa8cf8>
+-write - <function write at 0x1aa8de8>
+-addpass - <function add_pass at 0x1aad050>
+-export - <function export_vault at 0x1aad1b8>
+-default - <function default at 0x1aad2a8>
+-verify - <function verify at 0x1aa8d70>
+
+
+# a) To Add Password 
+  ------------------
+(honeyvenv) $ ./honey_client -addpass
+
+cmd: add password
+(honeyvenv) $ server/honey_client.py -addpass <master-password> <domain> <password>
+e.g. (honeyvenv) $ server/honey_client.py -addpass AwesomeS@la google.com 'FckingAwesome!'
+
+
+# b) Get your stored password
+  -------------------------------
+(honeyvenv) $ ./honey_client -getpass <master-password> <domain>
+
+# c) Genrate Random password 
+ ---------------------------
+(honeyvenv) $ ./honey_client -genpass <master-password> <domain>
+# Note it also stores the password in the vault
+
+# d) Upload the vault to the Storage service
+  ------------------------------------------
+(honeyvenv) $ ./honey_client -write <email> <token> <vault-file>
+# vault-file is in <base-dir>/static/vault.db
+# token what you have got while verifying in the server. If you haven't 
+# registered for an account in the server (or you dont remember), follow 
+# the registration steps.
+
+# e) Retrieve vault form the server
+  ---------------------------------
+(honeyvenv) $ ./honey_client -write <email> <token>
+# Warning! it will overwrite the static/vault.db
+
+# f) Register
+  -----------
+(honeyvenv) $ ./honey_client -register <email>
+# You will get a verifier token. (Ideal via email, but for the time beiing
+# it will just print in the terminal)
+(honeyvenv) $ ./honey_client -verify <email> <token>
+# this will give you another token (bearer token), save this token somewhere for future reference.
+# For any communication with the server you will need to send this token
+
+# g) Refresh bearer_token
+  -----------------------
+# Should your token had been compromised, you can replace the token in the server to revoke 
+# access using old token by the following command
+# If the adversary has already chagned your token. You should go through the registration process
+# again to regain access to your stored vault. Even if the adversary has got your vault, its still 
+# honey encrypted and not easy to break. So dont change the password right away, take time and change
+# all of them in one go, plus change your master password as well.
+(honeyvenv) $ ./honey_client -refresh <email> <token>
+
+# h) Get statically-mapped domain hash
+ ---------------------------------
+# using this command you can update your static/static_domain_hashes.txt file 
+(honeyvenv) $ server/honey_client.py -getdomainhash <email> <token> > static/static_domain_hashses.txt
+
+# -import and -export commands are not implemented now!
+
+
+
+
