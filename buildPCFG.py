@@ -1,40 +1,18 @@
 #!/usr/bin/python
 
-import sys, os
-import bz2, re
-import marisa_trie, json
-
-# For checking memory usage
-import resource
-
-EPSILON = '|_|'
-GRAMMAR_R=0
-NONTERMINAL = 1
-MEMLIMMIT = 1024 # 1024 MB, 1GB
-
-from os.path import (expanduser, basename)
-home = expanduser("~");
-
-def file_type(filename):
-    magic_dict = {
-        "\x1f\x8b\x08": "gz",
-        "\x42\x5a\x68": "bz2",
-        "\x50\x4b\x03\x04": "zip"
-        }
-    max_len = max(len(x) for x in magic_dict)
-    
-    with open(filename) as f:
-        file_start = f.read(max_len)
-    for magic, filetype in magic_dict.items():
-        if file_start.startswith(magic):
-            return filetype
-    return "no match"
+import csv, sys, os, re, bz2
+from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
+from lexer import lexer
+from lexer.lexer
+from helper.helper import open_
+import resource  # For checking memory usage
+import marisa_trie
 
 #
-# ['S']  -> [('S2,S',1,20), ('L4,S',1,34),.... (EPSILON, 12332]
-# ['S2'] -> [('!!',0,12),('$%',0,23), .. 12312]
-# ['L1'] -> [('o',0,13),('a',0,67),....235]
-# ['D3'] -> [('132',0,32),('123',0,23)....3567]
+# ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]
+# ['S2'] -> [('!!',0,12),('$%',0,23), .. ]
+# ['L1'] -> [('o',0,13),('a',0,67),....]
+# ['D3'] -> [('132',0,32),('123',0,23)....]
 #
 #          ||
 #          ||
@@ -45,232 +23,195 @@ def file_type(filename):
 # Every rule, will contain the the CDF instead of probability
 #
 
-"""
+'''
 gives what type of character it is.
 Letter: L, Capitalized: C
 Digit: D, Symbol: S
 ManglingRule: M
-"""
-regex = r'([A-Za-z]+)|([0-9]+)|(\W+)'
-def whatchar( c ):
-    if c.isalpha(): return 'L';
-    if c.isdigit(): return 'D';
-    else: return 'Y'
-
-inversemap=dict();
-def insertInGrammar ( grammar, pRule, w, count=1, isNonT=0 ):
-    if not w.strip(): return;
-    # if ( w == "L1,S" ): print pRule, w, count, isNonT
-    try:
-        s = grammar[pRule][0][inversemap[w]]
-        assert s[0]==w and s[2] == isNonT;
-        s[1] += count
-        grammar[pRule][1] += count; 
-        return;
-    except:
-        try:
-            grammar[pRule][0].append( [w, count, isNonT] )
-            inversemap[w] = len(grammar[pRule][0])-1
-            grammar[pRule][1] += count;
-        except:
-            grammar[pRule] = [[[w, count, isNonT]], 1]
-            inversemap[w] = 0;
-        
-#mangler = Mangle(); # Not used still
-def findPattern( w, withMangling=False ):
-    P,W,T = [],[],[]
-    i,j = 0, 0
-    W = [ sym for list_match in re.findall(regex, w) 
-          for sym in list_match if sym ]
-    
-    P = [ "%s%d" % ( whatchar(x[0]), len(x)) for x in W ]
-    # TODO - HOWWWWWW?????!!!! Confused
-    # Mstr = '';
-    # Cinfo = getCapitalizeInfo ( w );
-    # if withMangling: 
-    #     M,w = mangler.mangle(w);
-    #     if not M : return P
-    #     Mstr = 'M' + '-'.join([str(x) for x in M])
-
-    # if Cinfo>0 : 
-    #     CinfoStr = 'C%d' % Cinfo;
-    #     T.append( [CinfoStr) );
-    # if withMangling: T.append( [Mstr) )
-
-    return P,W,T;
-
-def pushWordIntoGrammar( grammar, w, count = 1, isMangling=False ) :
-    P,W,T = findPattern ( w, isMangling )
-    if GRAMMAR_R: # grammar is of the form S -> L1S | L2S | D3S .. etc | EPSILON
-        for p in P:
-            insertInGrammar( grammar, 'S', str(p)+',S', count, NONTERMINAL ) # NonTerminal
-        insertInGrammar ( grammar, 'S', EPSILON );
-    else:
-        insertInGrammar ( grammar, 'S', ','.join([ str(x) for x in P ]), count, NONTERMINAL ) # NonTerminal
-        
-    for p,w in zip(P,W):
-        insertInGrammar(grammar, str(p), w, count, 1-NONTERMINAL ); # Terminal
-        
-    # same like, iloveyou -> 0 | IloveU | ILoveYou etc..
-    # 0 => iloveyou
-    #if w.islower(): insertInGrammar( grammar, w, 0 )
-    #else: insertInGrammar ( grammar, w.lower(), w )
-    for t in T:
-        insertInGrammar ( grammar, 'T', t )
-    if isMangling : pushWordIntoGrammar ( w, True )
+'''
+###################### --NEW VERSION-- ###################################
 
 
-# P = [ [p[0], int(p[1]) ) for p in x.split(',')]
-# for p in P:
-#     print p;
-
-def convertToCDF(grammar):
-    for rule in grammar:
-        c = 0;
-        # print rule,
-        for nt in grammar[rule][0]:
-            nt[1] += c;
-            c = nt[1]
-        grammar[rule][1] = c
-
-def push_DotStar_IntoGrammar( grammar ) :
-    """
-    This is to support parsing all possible passwords. 
-    Artifical rules like, S -> L,S | D,S | Y,S
-    and L -> a|b|c|d..
-    D -> 1|3|4 etc
-    """
-    insertInGrammar( grammar, 'S', 'L1,S', 1, NONTERMINAL);
-    insertInGrammar( grammar, 'S', 'D1,S', 1, NONTERMINAL);
-    insertInGrammar( grammar, 'S', 'Y1,S', 1, NONTERMINAL);
-
-    for c in 'abcdefghijklmnopqrstuvwxyz':     
-        insertInGrammar( grammar, 'L1', c, 1, 1-NONTERMINAL )
-    for d in '0123456789' :                    
-        insertInGrammar( grammar, 'D1', d, 1, 1-NONTERMINAL )
-    for s in '!@#$%^&*()_-+=[{}]|\'";:<,.>?/': 
-        insertInGrammar( grammar, 'Y1', s, 1, 1-NONTERMINAL )
-    # mangling_rule={'a':'@', 's':'$', 'o':'0', 'i':'!'}
-    
-                   
-def buildGrammar(password_dict):
-    grammar  = dict()
-    grammar['S'] = ([],0) 
-    # start node ( [(w1,n1),(w2,n2),(w3,n3)..], n )
-    if file_type(password_dict) == "bz2":
-        f=bz2.BZ2File(password_dict)
-    else:
-        f = open(password_dict);
-    reinsert_words = []
+def buildpcfg(passwd_dictionary):
+    G = Grammar()
     # resource track
-    resource_tracker = 10240;
-    for n,line in enumerate(f):
+    resource_tracker = 5240
+    allowed_sym = re.compile(r'[ \-_]')
+    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg'
+    for n, line in enumerate(open_(passwd_dictionary)):
         if n>resource_tracker:
-            r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n;
-            if (r < 0 ):
-                print """
-Hitting the memory limmit of 1GB,
+            r = MEMLIMMIT*1024 - \
+                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n
+            if r < 0:
+                print '''
+Hitting the memory limit of 1GB,
 please increase the limit or use smaller data set.
-Lines processed, %d
-""" % n
+Lines processed, {0:d}
+'''.format(n)
                 break;
             resource_tracker += r/10+100;
         # if n%1000==0: print n;
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
-            w,c = ' '.join(line[1:]), int(line[0])
+            w, c = ' '.join(line[1:]), int(line[0])
         else:
-            w,c = ' '.join(line), 1
-        try: w.decode('ascii')
-        except: continue; # not ascii hence return
+            continue
+            w, c = ' '.join(line), 1
+        try:
+            w.decode('ascii')
+        except UnicodeDecodeError:
+            continue    # not ascii hence return
+        if c < MIN_COUNT : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+            print "Word frequency dropped to %d for %s" % (c, w), n
+            break  # Careful!!!
+        G.insert(w, c)
+        # print t
+        # root_fl.write("%s\t<>\t%s\n" % (' '.join(line), '~'.join(str((x,y)) for x,y in zip(W, Tag))))
+        
+    # TODO
+    #push_DotStar_IntoGrammar( grammar );
+    G.update_total_freq()
+    G.save(bz2.BZ2File(out_grammar_fl, 'w'))
+    #marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
+    return G
 
-        if w.islower() :
-            pushWordIntoGrammar( grammar, w, c )
+
+def breakwordsintotokens(passwd_dictionary):
+    """
+    Takes a password list file and break every password into possible tokens,
+    writes back to a output_file, named as <input_fl>_out.tar.gz,in csv format.
+    """
+    # for the direcotry
+    if not os.path.exists(GRAMMAR_DIR):
+        os.mkdir(GRAMMAR_DIR)
+    G_out_files = dict()
+    for k, f in GrammarStructure().getTermFiles().items():
+        G_out_files[k] = os.path.join(GRAMMAR_DIR, f)
+    Arr = {}
+    for k in G_out_files.keys():
+        Arr[k] = dict()
+    out_file_name = 'data/'+os.path.basename(passwd_dictionary).split('.')[0]+'_out.tar.gz'
+    print passwd_dictionary, out_file_name
+    output_file = open(out_file_name, 'wb')
+    csv_writer = csv.writer(output_file, delimiter=',',
+                            quotechar='"')
+    T = Scanner()
+    # G = Grammar(scanner=T)
+    # resource track
+    resource_tracker = 5240
+    for n, line in enumerate(open_(passwd_dictionary)):
+        if n>resource_tracker:
+            r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n
+            if r < 0:
+                print """
+Hitting the memory limit of 1GB,
+please increase the limit or use smaller data set.
+Lines processed, %d
+""" % n
+                break
+            resource_tracker += r/10+100
+        # if n%1000==0: print n;
+        line = line.strip().split()
+        if len(line) > 1 and line[0].isdigit():
+            w, c = ' '.join(line[1:]), int(line[0])
         else:
-            reinsert_words.append( w+'<>'+str(c) )
-    f.close();
-    push_DotStar_IntoGrammar( grammar );
-    if reinsert_words:
-        for w in reinsert_words:
-            w = w.split('<>')
-            c = int(w[-1])
-            w = '<>'.join(w[:-1])
-            pushWordIntoGrammar ( grammar, w, c);            
-    return grammar
-
-def writePCFG( grammar, filename ):
-    with bz2.BZ2File(filename, 'wb') as f:
-        print "Num grammar keys:", len(grammar.keys())
-        json.dump(grammar, f, indent=2, separators=(',',':'))
-
-        # for rule in grammar:
-        #     f.write( '%s:%s:%d\n' % 
-        #              ( rule, 
-        #                ':'.join(['%s|%d|%d' %(x[0], x[1], x[2]) 
-        #                          for x in grammar[rule][0]]), 
-        #                grammar[rule][1]) )
-
-#
-# What does this function do?
-# converts a string into NonTerminal Object
-# Not required after json trick
-#
-# def NonT( s ):
-#     # type_is | length
-#     if s.count('|') > 2:
-#         x = s.split('|');
-#         try:
-#             return [''.join(x[:-2]), int(x[-2]), int(x[-1])]
-#         except:
-#             sys.stderr.write( "~~~><%s>\n" % s ); 
-#     x = s.split('|')
-#     try:
-#         return [x[0], int(x[1]), int(x[2])];
-#     except:
-#         sys.stderr.write("~~><%s>\n" % s); 
-
-def readPCFG( filename ):
-    # grammar = dict()
-    with bz2.BZ2File(filename, 'rb') as f:
-        grammar = json.load(f);
-        print "Num grammar keys:", len(grammar.keys())        
-        return grammar
-    #     for l in f:
-    #         x = l.strip().split(':')
-    #         grammar[x[0]] = [[NonT(y) for y in x[1:-1] if y], int(x[-1])]
-    # return grammar
-
-def getfilenames( fname_origin ):
-    fname_origin = basename(fname_origin);
-    fname_origin = fname_origin.replace(".txt.bz2", '')
-    return "data/grammar_%s.hny.bz2" % fname_origin, "data/trie_%s.hny.bz2" % fname_origin, 
+            continue
+            w, c = ' '.join(line), 1
+        try:
+            w.decode('ascii')
+        except UnicodeDecodeError:
+            continue     # not ascii hence return
+        if c < MIN_COUNT:
+            break
+        # P is the patterns, W is the unmangled words, U is the original
+        Tags, W, U  = T.tokenize(w, True) 
+        # print t
+        if 'password' in w:
+            print Tags, W
+        if Tags:
+            for t,w in zip(Tags, W):
+                try:
+                    Arr[t][w] += c
+                except KeyError:
+                    try: Arr[t][w] = c
+                    except KeyError:
+                        print "Something is wrong:", Tags, W
+            csv_writer.writerow([c, w, str(Tags), str(W), str(U)])
+        else:
+            print 'Failed to Parse:', w
+    for k, D in Arr.items():
+        T = marisa_trie.Trie(D.keys())
+        T.save(G_out_files[k] + '.tri')
+        n = len(D.keys())+1
+        A = [0 for i in xrange(n)]
+        s = 0
+        for w,c in D.items():
+            i = T.key_id(unicode(w))
+            try: 
+                A[i] =  c
+                s += c
+            except IndexError: 
+                print "IndexError", w
+        A[-1] = s
+        with open(G_out_files[k] + '.py', 'w') as f:
+            f.write('%s = [' % k)
+            f.write(',\n'.join(['%d' % x for x in A]))
+            f.write(']\n')
+        # root_fl.write("%d,\'%s\t<>\t%s\n" % ( ' '.join(line), '~'.join(((t)))))
+        
+    # TODO
+    #push_DotStar_IntoGrammar( grammar );
+    output_file.close()
 
 def main():
-    if len (sys.argv) < 2 : 
-        print 'Command: %s <password_dict>' % sys.argv[0]
-        exit(-1)
-    grammar_flname, trie_flname = getfilenames( sys.argv[1] )
-    if os.path.exists(grammar_flname) and os.path.exists(trie_flname):
-        sys.stderr.write( "---->'%s' and '%s' already exists!\nIf you want to force, remove those files first.\nExisting!!\n" % (grammar_flname, trie_flname) )
-        return;
-    password_dict = sys.argv[1];
-    grammar = buildGrammar(password_dict)
-    convertToCDF(grammar);
-    if GRAMMAR_R:
-        import pickle
-        pickle.dump( grammar, open(grammar_flname, 'wb'))
+    if len(sys.argv)<2 or sys.argv[0] in ['-h', '--help']:
+        print '''Taste the HoneyVault1.1 - a New Password Encrypting paradigm!
+This is the PCFG generator script! Are you sure you wanna use this script.
+--build-dawg password_leak_file
+--build-pcfg password_leak_file
+--build-all password_leak_file
+        '''
     else:
-        #pickle.dump( grammar, open('data/grammar.hny', 'wb'))
-        writePCFG( grammar, grammar_flname )
-    marisa_trie.Trie(inversemap.keys()).save( trie_flname );
-    
-def main_modify() :
-    g = readPCFG('data/grammar_json.hny.bz2');
-    with bz2.BZ2File('data/grammar_json.hny.bz2', 'wb') as f:
-        f.write("#!/usr/bin/python\n\ngrammar=");
-        json.dump(g, f, indent=2, separators=(',',':'))
-    
+        if sys.argv[1] == '--build-dawg': breakwordsintotokens( sys.argv[2] )
+        elif sys.argv[1] == '--build-pcfg': buildpcfg( sys.argv[2] )
+        elif sys.argv[1] == '--build-all':  
+            breakwordsintotokens( sys.argv[2] )
+            buildpcfg( sys.argv[2] )
+        else: print "Sorry Hornet! Command not recognised."
+        
+
+
 if __name__ == "__main__":
-    main();
+    main()
+    #G = buildpcfg(sys.argv[1])
+    #print G
     
+    #T = Scanner()
+    #for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2', 'cutiepie1230', 'password1']:
+    #       print T.tokenize(w, True)
+    #D = MobileN();
+    #print D.parse('ram1992');
+    # K = KeyBoard();
+    # for l in sys.stdin:
+    #     #    print l.strip(), '-->', T.tokenize(l.strip(), True)[2];
+    #     l = l.strip().split()
+    #     if len(l)<1: print l; continue
+    #     w, s = K.IsKeyboardSeq(l[0])
+    #     if s:
+    #         p = K.generate_passqord_fromseq(s)
+    #         if p != l[0]:
+    #             print "ERROR:",  l[0], w, [], p
+    #breakwordsintotokens(sys.argv[1])
+    # buildpcfg(sys.argv[1])
+    # G = Grammar()
+    # G.load(GRAMMAR_DIR+'grammar.cfg')
+    # print G.G
+
+
+
+    
+
+
+
