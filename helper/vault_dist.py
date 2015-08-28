@@ -1,4 +1,4 @@
-from helper import open_, convert2group, getIndex
+from helper import open_, convert2group, getIndex, print_err
 from Crypto.Random import random 
 import os, sys, json
 BASE_DIR = os.getcwd()
@@ -32,7 +32,8 @@ class VaultDistribution:
         assert not lhs.startswith('L')
         cf %= self.G[lhs]['__total__']
         if cf == 0:
-            return cf
+            print_err("Grammar of size 0!!!!", lhs, cf)
+            #return cf
         i = getIndex(cf, self.G[lhs].values())
         return i+1
 

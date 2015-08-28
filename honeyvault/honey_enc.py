@@ -9,13 +9,12 @@ import sys, os, math, struct, bz2, resource
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 import string
-from Crypto.Random import random
 import marisa_trie
 from collections import deque
 from lexer.pcfg import TrainedGrammar, SubGrammar 
 import honeyvault_config as hny_config
-from helper.helper import getIndex, convert2group
-from vaultanalysis.vault_dist import VaultDistribution
+from helper.helper import getIndex, convert2group, random
+from helper.vault_dist import VaultDistribution
 from honeyvault_config import NONTERMINAL, TERMINAL
 MAX_INT = hny_config.MAX_INT
 
@@ -67,16 +66,28 @@ class DTE_random(DTE):
                 355687428096000, 6402373705728000, 121645100408832000, 2432902008176640000
                 # 17,            18,               19,                 20
                 ]
-    MAX_ALLOWED = 14
-    RANDOM_LEN_PART = MAX_ALLOWED - 8 # 8 is the minimum length of the pass
-    
+    MAX_ALLOWED = 14 # maximum pw length supported
+    MIN_PW_LENGTH = 8 # 8 is the minimum length of the pass
+    RANDOM_LEN_PART = MAX_ALLOWED - MIN_PW_LENGTH
+
     def __init__(self, size=10):
         self.pw, self.encoding = self.generate_and_encode_password(size)
 
     def generate_and_encode_password(self, size=10):
-        N = [random.randint(0, MAX_INT) for i in range(size+1)]
-        N[0] +=  (size - N[0] % self.MAX_ALLOWED)
-        P = [s[N[i+1]%len(s)] for i,s in enumerate(self.must_set)]
+        """
+        Generates and encodes a password of size @size.
+        first choose size+1 random numbers, where first one is to encode the length,
+        and the rest are to encode the passwords  
+        """
+        assert size<self.MAX_ALLOWED, "Size of asked password={}, which is bigger"\
+            "than supported {}".format(size, self.MAX_ALLOWED)
+        size = max(size, self.MIN_PW_LENGTH)
+
+        N = random.randints(0, MAX_INT, size+1) 
+        N[0] +=  (size - self.MIN_PW_LENGTH) - N[0] % (self.MAX_ALLOWED-self.MIN_PW_LENGTH) # s.t., N[0] % MAX_ALLOWED = size
+
+        P = [s[N[i+1]%len(s)] for i,s in enumerate(self.must_set)] # must set characters
+
         P.extend(self.All[n%len(self.All)] for n in N[len(self.must_set)+1:])
         n = random.randint(0, MAX_INT) 
         password = self.decode2string(n, P)
@@ -112,8 +123,14 @@ class DTE_random(DTE):
     
     @staticmethod
     def decode2string(num, s):
+        """
+        permutes the whole string @s, by the numebr @num
+        """
         sorted_s = sorted(s)
         n = len(s)
+        assert n<DTE_random.MAX_ALLOWED, "The size asking too big, only decode first MAX_ALLOWED"\
+            "s: {}".format(s)
+        
         st = ['' for i in range(n)]
         num %= DTE_random.fact_map[n-1]
         for i in range(n):
@@ -126,7 +143,7 @@ class DTE_random(DTE):
     def encode_pw(self, pw):
         p = list(pw[:])
         must_4 = [DTE_random.get_char(p, m) for m in must_set]
-        for x in must_4:
+        for x in must_4: 
             del p[x[0]]
         pw_random_order = DTE_random.decode2string(
             random.randint(0, self.fact_map[len(p)-1]),
@@ -145,8 +162,9 @@ class DTE_random(DTE):
         return code_g
         
     def decode_pw(self, N):
-        assert len(N) == hny_config.PASSWORD_LENGTH
-        n = 8 + N[0] % self.RANDOM_LEN_PART # TODO: convert this info to public
+        assert len(N) == hny_config.PASSWORD_LENGTH, "Encoding length mismatch! Expecting"\
+            "{}, got {}".format(hny_config.PASSWORD_LENGTH, len(N))
+        n = self.MIN_PW_LENGTH + N[0] % (self.MAX_ALLOWED-self.MIN_PW_LENGTH)
         N = N[1:n+2]
         P = [s[N[i]%len(s)] for i,s in enumerate(self.must_set)]
         P.extend(self.All[n%len(self.All)] for n in N[len(self.must_set):-1])
@@ -225,7 +243,7 @@ class DTE_large(DTE):
                 print "Sorry I cannot encode your password! Please choose"
                 print "something different, password12"
                 exit(0)
-            assert n == vd.decode_vault_size(head, code_g[-1])
+            assert n == vd.decode_vault_size(head, code_g[-1]), "Vault size encoding mismatch"
             code_g.extend([self.encode(head, r) 
                            for r in rule_dict.keys()
                            if r != '__total__'])
@@ -241,11 +259,11 @@ class DTE_large(DTE):
         done = []
         while stack:
             head = stack.pop()
-            assert head not in done
+            assert head not in done, "@Head ({}) in @done. It should not!".format(head) 
             done.append(head)
             p = iterp.next()
+            #print "RuleSizeDecoding:", head, done
             n = vd.decode_vault_size(head, p)
-            #print "RuleSizeDecoding:", head, n
             t_set = []
             for x in range(n):
                 rhs = self.decode(head, iterp.next())
@@ -364,4 +382,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main();
+    main()

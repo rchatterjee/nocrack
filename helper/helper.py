@@ -4,11 +4,11 @@ import sys, os
 import bz2, re
 import marisa_trie
 import json
-from Crypto.Random import random
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from honeyvault_config import MAX_INT, DEBUG
 from os.path import (expanduser, basename)
+import struct
 # opens file checking whether it is bz2 compressed or not.
 import tarfile
 
@@ -16,6 +16,33 @@ home = expanduser("~")
 pwd = os.path.dirname(os.path.abspath(__file__))
 regex = r'([A-Za-z_]+)|([0-9]+)|(\W+)'
 
+class random:
+    @staticmethod
+    def randints(s, e, n=1):
+        """
+        returns n uniform random numbers from [s, e]
+        """
+        assert e>=s, "Wrong range: [{}, {})".format(s, e)
+        n = max(1, n)
+        arr = [s + a%(e-s) for a in struct.unpack('<%dL'%n, os.urandom(4*n))]
+        return arr
+
+    @staticmethod
+    def randint(s,e):
+        """
+        returns one random integer between s and e. Try using @randints in case you need
+        multiple random integer. @randints is more efficient
+        """
+        return random.randints(s,e,1)[0]
+    
+    @staticmethod
+    def choice(arr):
+        i = random.randint(0, len(arr))
+        return arr[i]
+    
+    @staticmethod
+    def sample(arr, n):
+        return [arr[i] for i in random.randints(0, len(arr), n)]
 
 class Token:
     def __init__(self, v_=None, n_=None, o_=None):
