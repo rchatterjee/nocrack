@@ -148,12 +148,11 @@ e.g. ./honey_client -addpass AwesomeS@la google.com 'AmzingP@ss'
     mp = args[0]
     domain_pw_map = {get_exact_domain(k):v
                      for k,v in zip(args[1::2], args[2::2])}
-    print json.dumps(domain_pw_map, indent=4)
     hv = HoneyVault(VAULT_FILE, mp)
     hv.add_password(domain_pw_map)
     y = raw_input(""" Check the following sample decoded password and make sure your master
 password is correct. Otherwise you might accidentally spoile your whole
-vault. CAREFUL.  SAMPLE PASSWORDS: ---> %s Are all of the correct to the best of
+vault. CAREFUL.  SAMPLE PASSWORDS:\n---> %s Are all of the correct to the best of
 your knowledge! (y/n)""" % \
                       '\n---> '.join(hv.get_sample_decoding()))    
     if y.lower() == 'y':

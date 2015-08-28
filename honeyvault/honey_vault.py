@@ -8,7 +8,8 @@ from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
 from Crypto.Util import Counter
 import copy, struct
-from helper.helper import convert2group, open_, getIndex, print_err, ProcessParallel, random
+from helper.helper import (convert2group, open_, getIndex, print_err, ProcessParallel, random,
+                           print_production)
 from helper.vault_dist import VaultDistribution
 from collections import OrderedDict
 from array import array
@@ -70,6 +71,9 @@ class HoneyVault:
     def initialize_vault(self, mp):
         vd = VaultDistribution()
         if not os.path.exists(self.vault_fl):
+            print_production("\nCouldnot find the vault file @ {}, so, sit tight, "\
+                             "creating a dummy vault for you."\
+                             "\nShould not take too long...\n")
             t_s = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_ENCODING_SIZE)
             self.H = t_s[:hny_config.HONEY_VAULT_GRAMMAR_SIZE]
             t_s = t_s[hny_config.HONEY_VAULT_GRAMMAR_SIZE:]
@@ -101,6 +105,7 @@ class HoneyVault:
     def add_password(self, domain_pw_map):
         #print self.dte.G
         nG = copy.deepcopy(self.dte.G)
+        print_production("Updating the grammar with new passwords..")
         nG.update_grammar(*(domain_pw_map.values()))
         ndte = DTE(nG)
         # TODO: fix this, currently its a hack to way around my shitty
@@ -113,7 +118,7 @@ class HoneyVault:
             # if new dte is different then copy the existing human chosen passwords. 
             # Machine generated passwords are not necessary to reencode. As their grammar
             # does not change. NEED TO CHECK SECURITY.
-
+            print_production("\nSome new rules found, so adding them to the new grammar. Should not take too long...\n")
             data = [(self.dte, ndte, i, p)
                         for i,p in enumerate(self.S)
                         if self.machine_pass_set[i] == '0']            
@@ -131,13 +136,14 @@ class HoneyVault:
             # print_err("After Decoding:", G_)
             # assert G_ == nG
 
+        print_production("\nAdding new passowrds..\n")
         for d,p in domain_pw_map.items():
             i = self.get_domain_index(d)
             self.S[i] = ndte.encode_pw(p)
             self.machine_pass_set[i] = '0'
 
         # Cleaning the mess because of missed passwords
-        print "Fixing Mess!!", new_encoding_of_old_pw
+        print_err("Fixing Mess!!", new_encoding_of_old_pw)
         nG.update_grammar(*[p for i,p in new_encoding_of_old_pw])
         for i,p in new_encoding_of_old_pw:
             self.S[i] = ndte.encode_pw(p)

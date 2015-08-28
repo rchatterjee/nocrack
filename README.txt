@@ -1,10 +1,6 @@
-# json.dump and json.load
-# memory --> same
-# time   --> 0m9.111s  for 903072 records
-
-# ============= DEPENDANCIES =============== 
+# DEPENDANCIES
   - python 2.7.x or more  (http://stackoverflow.com/a/5507373/1792013)
-  - marisa_trie
+  - python-dev
   - (check requirement.txt)
 
 # ========= INSTALL =======================
@@ -12,7 +8,7 @@
 # unpack and run 'python virtualenv-x.xx/virtualenv.py venv'  
 $ virtualenv venv
 $ source ./venv/bin/activate
-$ pip install -r requirement.txt
+$ pip install -r requirement.txt 
 $ git clone -b vault1.1 git@bitbucket.org:rchatterjee/honeyencryption.git
 
 
@@ -52,3 +48,6 @@ export PATH=$HOME/PythonLib/bin/:$PATH
 # pip install --user package_name
 # pip install --install-option="--prefix=$HOME/local" package_name
 # etc.
+# json.dump and json.load
+# memory --> same
+# time   --> 0m9.111s  for 903072 records
