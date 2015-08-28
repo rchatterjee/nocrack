@@ -28,7 +28,8 @@ EPSILON = '|_|'
 GRAMMAR_R = 0
 MEMLIMMIT = 1024  # 1024 MB, 1GB
 MIN_COUNT = 10
-DEBUG = 1
+DEBUG = 0
+PRODUCTION = 1
 NONTERMINAL = 1
 TERMINAL = 1 - NONTERMINAL
 
@@ -40,8 +41,11 @@ MAX_INT = 256**REPR_SIZE # value of maximum integer in this representation.
 
 PASSWORD_LENGTH = 50 # length of the password encoding
 HONEY_VAULT_GRAMMAR_SIZE  = 200   # 400 bytes, 50 integers/rules
-HONEY_VAULT_S1 = 100
-HONEY_VAULT_S2 = 100
+HONEY_VAULT_S1 = 1000 # This controls the size of your password vault. If you want to increase the size
+HONEY_VAULT_S2 = 1000 # feel free to change these. Remember to delete static/vault.db after this.
+                      # Need less to say, you will lose all your passwords. Export/import operation is
+                      # not yet supported.
+
 HONEY_VAULT_STORAGE_SIZE = HONEY_VAULT_S1 + HONEY_VAULT_S2
 # TODO: for each password there is 1 byte saying the size of the password 
 # currently '1' or '0' for m/c or human generated pw

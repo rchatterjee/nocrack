@@ -6,7 +6,7 @@ import marisa_trie
 import json
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from honeyvault_config import MAX_INT, DEBUG
+from honeyvault_config import MAX_INT, DEBUG, PRODUCTION
 from os.path import (expanduser, basename)
 import struct
 # opens file checking whether it is bz2 compressed or not.
@@ -100,6 +100,10 @@ def get_line(file_object, lim=-1):
 
 def print_err( *args ):
     if DEBUG == True:
+        sys.stderr.write(' '.join([str(a) for a in args])+'\n')
+
+def print_production( *args ):
+    if PRODUCTION == True:
         sys.stderr.write(' '.join([str(a) for a in args])+'\n')
 
 printed_once_dict={}
