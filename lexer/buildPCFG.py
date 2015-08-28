@@ -3,7 +3,7 @@
 import csv, sys, os, re, bz2
 from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
 from lexer import lexer
-from lexer.lexer
+from lexer.lexer_helper import GrammarStructure
 from helper.helper import open_
 import resource  # For checking memory usage
 import marisa_trie

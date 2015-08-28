@@ -18,22 +18,19 @@ def create_request(sub_url, data):
     return urllib2.Request(HONEY_SERVER_URL+sub_url,
                            urllib.urlencode(data))
 
-def get_exact_domain( args ):
-    ret = []
+def get_exact_domain( url ):
     psl = PublicSuffixList()
-    for url in args:
-        url = url.strip()
-        u = urlparse(url)
-        h = u.hostname
-        if not h:
-            h = url
-        ret.append(psl.get_public_suffix(h))
-    return ret
+    url = url.strip()
+    u = urlparse(url)
+    h = u.hostname
+    if not h:
+        h = url
+    return psl.get_public_suffix(h)
 
-# def get_exact_domains( urllist ):
-#     return [get_exact_domain(url) 
-#             for url in urllist]
-
+def get_exact_domains( urllist ):
+    return [get_exact_domain(url) 
+            for url in urllist]
+     
 def hash_mp(mp):
     h = SHA256.new()
     h.update(mp)
@@ -144,22 +141,21 @@ Add password to your vault. It will automatically initialize the vault.
 If you get some error, just delete the static/vault.db (if you dont have any password)
 Or download a copy from the server. 
 ./honey_client -addpass <master-password> <domain> <password>
-e.g. ./honey_client -addpass AwesomeS@la google.com 'FckingAwesome!'
+e.g. ./honey_client -addpass AwesomeS@la google.com 'AmzingP@ss'
 """
     if len(args)<3:
         return h_string
     mp = args[0]
-    domain_pw_map = {get_exact_domain(args[1:2]) : args[2]}
+    domain_pw_map = {get_exact_domain(k):v
+                     for k,v in zip(args[1::2], args[2::2])}
+    print json.dumps(domain_pw_map, indent=4)
     hv = HoneyVault(VAULT_FILE, mp)
     hv.add_password(domain_pw_map)
-    y = raw_input("""
-Check the following sample decoded password and make sure your master password is correct. Otherwise you might
-accidentally spoile your whole vault. CAREFUL. 
-SAMPLE PASSWORDS: 
----> %s
-Are all of the correct to the best of your knowledge! (y/n)""" % \
-                      '\n---> '.join(hv.get_sample_decoding())
-                  )    
+    y = raw_input(""" Check the following sample decoded password and make sure your master
+password is correct. Otherwise you might accidentally spoile your whole
+vault. CAREFUL.  SAMPLE PASSWORDS: ---> %s Are all of the correct to the best of
+your knowledge! (y/n)""" % \
+                      '\n---> '.join(hv.get_sample_decoding()))    
     if y.lower() == 'y':
         hv.save()
         return """
@@ -178,7 +174,7 @@ e.g. ./honey_client -addpass AwesomeS@la google.com
         return h_string
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
-    return hv.get_password(get_exact_domain(args[1:]))
+    return hv.get_password(get_exact_domains(args[1:]))
 
 
 def import_vault( *args ):
@@ -222,14 +218,14 @@ export the vault,
 NOTE: this might generate some extra password which does not belong to you.
 Dont panic, those are randomly generated for security purpose. 
 Also for s2 part we need the cache, if it is not complete you will miss
-some in the export file, though password is there in the vault.
+some in the export file, though the passwords are there in the vault.
 ./honey_client -export <master-password>
 e.g. ./honey_client -export AwesomeS@la
 """
     if len(args)<2:
         return h_string
     mp = args[0]
-    domain = hash_mp(get_exact_domain(args[1]))
+    domain = hash_mp(get_exact_domains(args[1]))
     index = json.load(open(STATIC_DOMAIN_HASH_LIST)).get(domain, -1)
     
 
@@ -242,10 +238,22 @@ e.g. ./honey_client -addpass AwesomeS@la google.com
     if len(args)<2:
         return h_string
     mp = args[0]
-    domain_list = [args[1]]
+    domain_list = args[1:]
     hv = HoneyVault(VAULT_FILE, mp)
     return hv.gen_password(mp, domain_list)
 
+def get_all_pass( *args ):
+    h_string =  """
+Prints all the password in the vault
+./honey_client -getall <master-password> 
+e.g. ./honey_client -getall AwesomeS@la
+"""
+    if len(args)<1:
+        return h_string
+    mp = args[0]
+    hv = HoneyVault(VAULT_FILE, mp)
+    return '\n'.join(str(s) for s in hv.get_all_pass())
+    
 def default( *args ):
     print '\n'.join("%s : %s" % (k,v().split('\n')[1]) 
                     for k,v in command_func_map.items() 
@@ -254,13 +262,7 @@ def default( *args ):
     
 def test_getpass(*args):
     h_string =  """
-export the vault, 
-NOTE: this might generate some extra password which does not belong to you.
-Dont panic, those are randomly generated for security purpose. 
-Also for s2 part we need the cache, if it is not complete you will miss
-some in the export file, though password is there in the vault.
-./honey_client -export <master-password>
-e.g. ./honey_client -export AwesomeS@la
+Just a test framework for testing getpass  function.
 """
     if len(args)<1:
         return h_string
@@ -286,6 +288,7 @@ command_func_map = {
     '-import': import_vault,
     '-export': export_vault,
     '-test': test_getpass,
+    '-getall': get_all_pass
 }
 
     

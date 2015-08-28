@@ -18,8 +18,7 @@ from dawg import IntDAWG, DAWG
 import marisa_trie
 import struct, json, bz2, re
 from lexer_helper import Date, KeyBoard, RuleSet, ParseTree
-from helper.helper import open_, getIndex, convert2group, bin_search, print_once
-from Crypto.Random import random
+from helper.helper import open_, getIndex, convert2group, bin_search, print_once, random
 import honeyvault_config as hny_config
 from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
 from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
@@ -32,7 +31,6 @@ grammar_file = GRAMMAR_DIR + '/grammar.cfg.bz2'
 
 
 class TrainedGrammar(object):
-
     l33t_replaces = DAWG.compile_replaces({
             '3':'e', '4':'a', '@':'a',
             '$':'s', '0':'o', '1':'i',
@@ -67,8 +65,7 @@ class TrainedGrammar(object):
 
     def get_prob(self, l, r):
         f = self.G.get(l, {}).get(r, 0)
-        if f>0:
-            return float(f)/self.G[l]['__total__']
+        return max(float(f)/self.G[l]['__total__'], 0.0)
 
     def isNonTerm(self, lhs): # this means given lhs, rhs will be in NonT 
         return lhs in self.NonT_set
@@ -78,7 +75,8 @@ class TrainedGrammar(object):
             return rhs.split(',')
         elif lhs == 'T':
             return ['%s_%s' % (lhs,c)
-                    for c in rhs.split(',')]
+                    for c in (rhs.split(',') if ',' in rhs
+                              else rhs)]
         elif lhs == 'L':
             return ['%s_%s' % (lhs,c)
                     for c in rhs]
@@ -101,9 +99,9 @@ class TrainedGrammar(object):
         T = self.date.IsDate(word)
         if T:
             p = 10**(len(word)-8)
-            # for r in T.tree:
-            #     p *= self.get_prob(*r)
-            # p *= self.get_prob(*(T.get_rule()))
+            for r in T.tree:
+                p *= self.get_prob(*r)
+            p *= self.get_prob(*(T.get_rule()))
             return ('T', [(word, T)], p)
 
     def get_all_matches(self, word):
@@ -148,7 +146,7 @@ class TrainedGrammar(object):
                     # print "Not sure why it reached here. But it did!"
                     # print i, j, word[i: i+j+1]
         return A[(0, len(word)-1)]
-    
+        
     def l_parse_tree(self, word): # leftmost parse-tree
         pt = ParseTree()
         p = self.parse(word)
@@ -184,8 +182,11 @@ class TrainedGrammar(object):
 
     def encode_rule(self, l, r):
         rhs_dict = self.G[l]
-        i = rhs_dict.keys().index(r)
-        assert i >= 0
+        try:
+            i = rhs_dict.keys().index(r)
+        except ValueError:
+            print "{} not in the rhs_dict (l: '{}', rhs_dict: {})".format(r, l, self.G[l])
+            raise ValueError
         l_pt = sum(rhs_dict.values()[:i])
         r_pt = l_pt + rhs_dict[r]
         return convert2group(random.randint(l_pt,r_pt),
@@ -193,8 +194,12 @@ class TrainedGrammar(object):
 
     def encode_pw(self, pw):
         pt = self.l_parse_tree(pw)
-        code_g = [self.encode_rule(*p)
+        try:
+            code_g = [self.encode_rule(*p)
                   for p in pt]
+        except ValueError:
+            print "Error in encoding: \"{}\"".format(pw)
+            return []
         extra = hny_config.PASSWORD_LENGTH - len(code_g);
         code_g.extend([convert2group(0,1) for x in range(extra)])
         return code_g
@@ -223,7 +228,10 @@ class TrainedGrammar(object):
             return nw
                 
     def decode_pw(self, P):
-        assert len(P) == hny_config.PASSWORD_LENGTH
+        assert len(P) == hny_config.PASSWORD_LENGTH, \
+            "Not correct length to decode, Expecting {}, got {}"\
+            .format(hny_config.PASSWORD_LENGTH, len(P))
+        
         iterp = iter(P)
         plaintext = '';
         stack = ['G']
@@ -250,6 +258,9 @@ class TrainedGrammar(object):
 
     def is_grammar(self):
         return bool(self.G['G'])
+    def __str__(self):
+        return json.dumps(self.G['G'], indent=2)
+
     # def __nonzero__(self):
     #     return bool(self.G['G'])
     # __bool__ = __nonzero__
@@ -327,8 +338,6 @@ if __name__=='__main__':
         code_g =  tg.encode_pw(sys.argv[2])
         print code_g
         print tg.decode_pw(code_g)
-    elif sys.argv[1] == '-parse':
-        print tg.parse(sys.argv[2])
     elif sys.argv[1] == '-vault':
         g = SubGrammar(tg, sys.argv[2:])
         print g

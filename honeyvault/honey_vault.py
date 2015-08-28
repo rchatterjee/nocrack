@@ -6,17 +6,14 @@ import honeyvault_config as hny_config
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
-from Crypto.Random import random
 from Crypto.Util import Counter
-from Crypto import Random
 import copy, struct
-from helper.helper import convert2group, open_, getIndex, print_err, ProcessParallel
+from helper.helper import convert2group, open_, getIndex, print_err, ProcessParallel, random
 from helper.vault_dist import VaultDistribution
 from collections import OrderedDict
 from array import array
 from pprint import pprint
 
-rnd_source = Random.new()
 MAX_INT = hny_config.MAX_INT
 
 #-------------------------------------------------------------------------------
@@ -27,12 +24,16 @@ def do_crypto_setup(mp, salt = b'madhubala'):
     return aes 
 
 def copy_from_old_parallel( args ):
-    Random.atfork()
-    odte, ndte, i, S = args
+    odte, ndte, i, p = args
     ret = []
-    pw = odte.decode_pw(S)
+    pw = odte.decode_pw(p)
     if not pw: return (i,[])
-    return (i,ndte.encode_pw(pw))
+    ret = ndte.encode_pw(pw)
+    if not ret:
+        print "Cool I failed in encoding!! Kudos to me. pw: {}, i: {}"\
+            .format(pw, i)
+        ret = pw
+    return (i,ret)
         
 class HoneyVault:
     s1 = hny_config.HONEY_VAULT_S1
@@ -51,7 +52,6 @@ class HoneyVault:
         self.mp = mp
         self.initialize_vault(mp)
         self.dte = DTE(self.pcfg.decode_grammar(self.H))
-        #print_err (self.dte.G)
         
     def get_domain_index(self, d):
         h = SHA256.new()
@@ -70,25 +70,18 @@ class HoneyVault:
     def initialize_vault(self, mp):
         vd = VaultDistribution()
         if not os.path.exists(self.vault_fl):
-            buf = rnd_source.read(hny_config.HONEY_VAULT_ENCODING_SIZE * 4)
-            t_s = struct.unpack(
-                '!%sI' % hny_config.HONEY_VAULT_ENCODING_SIZE, buf)
+            t_s = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_ENCODING_SIZE)
             self.H = t_s[:hny_config.HONEY_VAULT_GRAMMAR_SIZE]
             t_s = t_s[hny_config.HONEY_VAULT_GRAMMAR_SIZE:]
-            self.S = [t_s[i*hny_config.PASSWORD_LENGTH:(i+1)*hny_config.PASSWORD_LENGTH]
-                      for i in range(self.s)]
-            #buf = struct.unpack('!%sI' % self.mpass_set_size, rnd_source.read(self.mpass_set_size))
-            # self.machine_pass_set = \
-            #     list(''.join(["{0:08b}".format(x) 
-            #                   for x in struct.unpack(
-            #                     "%sB" % self.mpass_set_size, buf)]))
-            # assert len(self.machine_pass_set) >= len(self.S)
+            self.S = [t_s[i:i+hny_config.PASSWORD_LENGTH]
+                      for i in range(0, self.s*hny_config.PASSWORD_LENGTH, hny_config.PASSWORD_LENGTH)]
+            assert all(len(s)==hny_config.PASSWORD_LENGTH for s in self.S), "All passwords encodings are not of correct length.\n {}".format((len(s), hny_config.PASSWORD_LENGTH) for   s in self.S)
             self.machine_pass_set = list('0'*(self.mpass_set_size*8))
             k = int(math.ceil(hny_config.HONEY_VAULT_STORAGE_SIZE * \
                                   hny_config.MACHINE_GENRATED_PASS_PROB/1000.0))
             for i in random.sample(range(hny_config.HONEY_VAULT_STORAGE_SIZE), k):
                 self.machine_pass_set[i] = '1'
-            self.salt = rnd_source.read(8)
+            self.salt = os.urandom(8)
             self.save(mp)
         else:
             self.load(mp)
@@ -102,7 +95,7 @@ class HoneyVault:
             self.S[i] = encoding
             self.machine_pass_set[i] = '1'
             reply.append(p)
-            self.save()
+        self.save()
         return OrderedDict(zip(domain_list, reply))
     
     def add_password(self, domain_pw_map):
@@ -110,25 +103,47 @@ class HoneyVault:
         nG = copy.deepcopy(self.dte.G)
         nG.update_grammar(*(domain_pw_map.values()))
         ndte = DTE(nG)
+        # TODO: fix this, currently its a hack to way around my shitty
+        # parsing. A password can be generated in a different way than it is parsed in most probably
+        # way. The code is supposed to pick one parse tree at random. Currently picking the most 
+        # probable one. Need to fix for security reason. Will add a ticket. 
+        new_encoding_of_old_pw = [] 
+
         if self.dte and (ndte != self.dte):
-            # if new dte is different then
+            # if new dte is different then copy the existing human chosen passwords. 
+            # Machine generated passwords are not necessary to reencode. As their grammar
+            # does not change. NEED TO CHECK SECURITY.
+
             data = [(self.dte, ndte, i, p)
                         for i,p in enumerate(self.S)
                         if self.machine_pass_set[i] == '0']            
             result = ProcessParallel(copy_from_old_parallel, data, func_load=100)
-            for i, p in enumerate(result):
+            
+            for i, p in result:
+                if isinstance(p, basestring):
+                    new_encoding_of_old_pw.append((i, p))
                 self.S[i] = p
-            self.H = self.pcfg.encode_grammar(nG)
-            #print_err(self.H[:10])
-            G_ = self.pcfg.decode_grammar(self.H)
-            #print_err("-"*50)
-            #print_err("Original: ", nG, '\n', '='*50)
-            #print_err("After Decoding:", G_)
-            assert G_ == nG
+
+            # print_err(self.H[:10])
+            # G_ = self.pcfg.decode_grammar(self.H)
+            # print_err("-"*50)
+            # print_err("Original: ", nG, '\n', '='*50)
+            # print_err("After Decoding:", G_)
+            # assert G_ == nG
+
         for d,p in domain_pw_map.items():
             i = self.get_domain_index(d)
             self.S[i] = ndte.encode_pw(p)
             self.machine_pass_set[i] = '0'
+
+        # Cleaning the mess because of missed passwords
+        print "Fixing Mess!!", new_encoding_of_old_pw
+        nG.update_grammar(*[p for i,p in new_encoding_of_old_pw])
+        for i,p in new_encoding_of_old_pw:
+            self.S[i] = ndte.encode_pw(p)
+            self.machine_pass_set[i] = '0'
+
+        self.H = self.pcfg.encode_grammar(nG)
         self.dte = ndte
         
     def get_password(self, domain_list):
@@ -137,7 +152,6 @@ class HoneyVault:
         for d in domain_list:
             i = self.get_domain_index(d)
             if self.machine_pass_set[i] == '1':
-                print_err("Machine Password")
                 pw = r_dte.decode_pw(self.S[i])
             else:
                 pw = self.dte.decode_pw(self.S[i])
@@ -149,7 +163,18 @@ class HoneyVault:
         check some of the sample decoding to make sure you are
         not accidentally spoiling the vault
         """
+        assert all(len(self.S[i])==hny_config.PASSWORD_LENGTH for i in self.sample),\
+                   "Corrupted Encoding!!" 
         return [self.dte.decode_pw(self.S[i]) for i in self.sample]
+
+    def get_all_pass(self):
+        """
+        Returns all the passwords in the vault.
+        """
+        r_dte = DTE_random()
+        return ((i, self.dte.decode_pw(s)) if self.machine_pass_set[i] == '0'\
+                else (i, r_dte.decode_pw(s))
+                for i,s in enumerate(self.S))
 
     def save(self, mp=None):
         if not mp:

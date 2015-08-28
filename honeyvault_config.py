@@ -40,8 +40,8 @@ MAX_INT = 256**REPR_SIZE # value of maximum integer in this representation.
 
 PASSWORD_LENGTH = 50 # length of the password encoding
 HONEY_VAULT_GRAMMAR_SIZE  = 200   # 400 bytes, 50 integers/rules
-HONEY_VAULT_S1 = 10000
-HONEY_VAULT_S2 = 10000
+HONEY_VAULT_S1 = 100
+HONEY_VAULT_S2 = 100
 HONEY_VAULT_STORAGE_SIZE = HONEY_VAULT_S1 + HONEY_VAULT_S2
 # TODO: for each password there is 1 byte saying the size of the password 
 # currently '1' or '0' for m/c or human generated pw

@@ -352,8 +352,8 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
         if T_rules:
             self.update_date_regex(T_rules)
 
-    def set_date(date_W):
-        self.date = self.IsDate(date_w)
+    def set_date(self, date_W):
+        self.date = self.IsDate(date_W)
 
     def update_date_regex(self, T_rules):
         # customized Date regex
@@ -365,7 +365,6 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
                            for r in T_rules])
              )
         self.date_regex = re.compile(regex)
-        print regex
         
     def regexes(self, sym):
         D = {'m': 'mm',
@@ -403,7 +402,7 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
         m_dict = dict((k,v) 
                       for k,v in m.groupdict().iteritems() 
                       if v and k!='date') 
-        k, v = m_dict.keys()[0], m_dict.values()[0]
+        k, v = m_dict.items()[0]
         x = ParseTree()
         for l in k:
             x.add_rule(("T_%s"%l, v[:self.length(l)]))
