@@ -130,6 +130,9 @@ class NonT_L(NonT):
                 rs.add_rule('L_%s'%c,d)
         return rs
 
+    def __str__(self):
+        return "NonT_L: ({}, {})".format(self.l, self.r)
+
 class NonT_W(NonT):
     sym, prod, prob = 'W', '', 0.0
     word_dawg  = IntDAWG().load('data/English_30000.dawg')

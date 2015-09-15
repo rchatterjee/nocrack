@@ -243,7 +243,10 @@ class DTE_large(DTE):
                 print "Sorry I cannot encode your password! Please choose"
                 print "something different, password12"
                 exit(0)
-            assert n == vd.decode_vault_size(head, code_g[-1]), "Vault size encoding mismatch"
+            assert n == vd.decode_vault_size(head, code_g[-1]), "Vault size encoding mismatch. "\
+                "\nhead: \"{}\", code_g: {}, n: {}, decoded_vault_size: {}"\
+                    .format(head, code_g[-1], n, vd.decode_vault_size(head, code_g[-1]))
+                                                                             
             code_g.extend([self.encode(head, r) 
                            for r in rule_dict.keys()
                            if r != '__total__'])

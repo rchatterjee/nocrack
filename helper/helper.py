@@ -20,9 +20,9 @@ class random:
     @staticmethod
     def randints(s, e, n=1):
         """
-        returns n uniform random numbers from [s, e)
+        returns n uniform random numbers from [s, e]
         """
-        assert e>=s, "Wrong range: [{}, {})".format(s, e)
+        assert e>=s, "Wrong range: [{}, {}]".format(s, e)
         n = max(1, n)
         arr = [s + a%(e-s+1) for a in struct.unpack('<%dL'%n, os.urandom(4*n))]
         return arr
@@ -37,7 +37,9 @@ class random:
     
     @staticmethod
     def choice(arr):
-        i = random.randint(0, len(arr))
+        i = random.randint(0, len(arr)-1)
+        assert i<len(arr), "Length exceeded by somehow! Should be < {}, but it is {}"\
+            .format(len(arr), i)
         return arr[i]
     
     @staticmethod
