@@ -8,7 +8,7 @@ K -> <keyboard-sequence>
 R -> repeat
 S -> sequence # 123456, abcdef, ABCDEFG
 L -> Capitalize | ALL-UPPER | all-lower | l33t
-G -> <some-combination-of-those-NonTs>
+G -> DG | YG | WG | RG | SG | KG | D | Y | W | R | S | K
 """
 
 import os, sys, string
