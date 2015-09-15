@@ -71,9 +71,9 @@ class HoneyVault:
     def initialize_vault(self, mp):
         vd = VaultDistribution()
         if not os.path.exists(self.vault_fl):
-            print_production("\nCouldnot find the vault file @ {}, so, sit tight, "\
+            print_production("\nCould not find the vault file @ {}, so, sit tight, "\
                              "creating a dummy vault for you."\
-                             "\nShould not take too long...\n")
+                             "\nShould not take too long...\n".format(self.vault_fl))
             t_s = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_ENCODING_SIZE)
             self.H = t_s[:hny_config.HONEY_VAULT_GRAMMAR_SIZE]
             t_s = t_s[hny_config.HONEY_VAULT_GRAMMAR_SIZE:]
