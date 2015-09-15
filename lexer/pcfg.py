@@ -26,6 +26,7 @@ from collections import OrderedDict, defaultdict
 from pprint import pprint
 import resource  # For checking memory usage
 from lexer import NonT_L, get_nont_class
+import operator
 
 grammar_file = GRAMMAR_DIR + '/grammar.cfg.bz2'
 
@@ -46,6 +47,36 @@ class TrainedGrammar(object):
     def load(self, filename):
         self.G = json.load(open_(filename),
                            object_pairs_hook=OrderedDict)
+
+        """
+        An effort to update the grammar structure. Will fix the original
+        grammar later. 
+        Grammar shouldlook like:
+          G -> W,G | D,G | Y,G | R,G | K,G | .. | W | D | Y | R | K
+          W -> W1 | W2 | W3 ..
+          D -> D1 | D2 .. 
+        """
+        new_start = defaultdict(int)
+        new_g = defaultdict(dict)
+        for ntkey,v in self.G['G'].items():
+            ntkey = ntkey.split(',')
+            for i,k in enumerate(ntkey):
+                if len(k)>1:
+                    new_g[k[0]][k] = new_g[k[0]].get(k, 0) + v
+                if i==len(ntkey)-1:
+                    new_non_t = ntkey[-1][0]
+                else:
+                    new_non_t = k[0]+',G'                    
+                new_start[new_non_t] += v
+
+        for k in new_g.keys():
+            v = new_g[k]
+            new_g[k] = OrderedDict(sorted(v.items(), key=operator.itemgetter(0)))
+
+        self.G.update(new_g)
+        self.G['G'] = OrderedDict(sorted(new_start.items(), key=operator.itemgetter(0)))
+        
+        # Calculate CDF for faster processing
         for k,v in self.G.items():
             if self.cal_cdf:
                 print_err("Calculating CDF!")
@@ -56,6 +87,8 @@ class TrainedGrammar(object):
                 v['__total__'] = lf
             else:
                 v['__total__'] = sum(v.values())
+
+        # Create dawg/trie of the Wlist items for fast retrieval
         Wlist = [x 
                  for k,v in self.G.items()
                  for x in v
@@ -80,6 +113,8 @@ class TrainedGrammar(object):
         elif lhs == 'L':
             return ['%s_%s' % (lhs,c)
                     for c in rhs]
+        elif lhs in ['W', 'D', 'Y', 'R', 'K']:
+            return [rhs]
         else:
             return []
 
@@ -130,6 +165,18 @@ class TrainedGrammar(object):
             a = r[1] + s[1]
             return (k, a, p)
 
+    def random_parse(self, word, try_num=3):
+        """
+        Returns a random parse of the word following the grammar.
+        """
+        # First- rejection sampling, most inefficient version
+        # break the word into random parts and then see if that parse exist
+        print "\n^^^^^^^^^^^_______________^^^^^^^^^^^^^^"
+        if try_num<0:
+            print "I am very sorry. I could not parse this :(!!"
+            return None
+        # NO IDEA HOW TO randomly pick a parse tree!! @@TODO
+
     def parse(self, word):        
         A = {}
         for j in range(len(word)):
@@ -153,8 +200,16 @@ class TrainedGrammar(object):
         if not p:
             print "Failing at ", word.encode('utf-8')
             return pt
-        pt.add_rule(('G', p[0]))
-        for l, each_r in zip(p[0].split(','), p[1]):
+        #pt.add_rule(('G', p[0]))  --- OLD ONE, adding new rules
+        for i, elem in enumerate(zip(p[0].split(','), p[1])):
+            l, each_r = elem
+            # G -> WG | DG | W | D.. etc; W -> W2 | W3; D -> D3 | D5..
+            new_non_t = l[0] if i==len(p[1])-1 else l[0]+',G'
+            new_t = l if len(l)>1 else None
+            pt.add_rule(('G', new_non_t))
+            if new_t:
+                pt.add_rule((l[0], new_t))
+
             if isinstance(each_r, basestring):
                 pt.add_rule((l, each_r))
             elif l.startswith('W'):
@@ -238,8 +293,8 @@ class TrainedGrammar(object):
         while stack:
             lhs = stack.pop()
             rhs = self.decode_rule(lhs, iterp.next())
-            if lhs in ['G', 'T']:
-                arr = rhs.split(',') if lhs == 'G' \
+            if lhs in ['G', 'T', 'W', 'R', 'Y', 'D']:
+                arr = rhs.split(',') if lhs != 'T' \
                     else ['T_%s'% c for c in rhs.split(',')]
                 arr.reverse()
                 stack.extend(arr)
@@ -343,3 +398,5 @@ if __name__=='__main__':
         print g
     elif sys.argv[1] == '-parse':
         print 'Parse',  tg.parse(sys.argv[2])
+    elif sys.argv[1] == '-ptree':
+        print 'Parse',  tg.l_parse_tree(sys.argv[2])
