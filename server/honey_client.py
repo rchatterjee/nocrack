@@ -167,7 +167,7 @@ def get_pass( *args ):
     h_string =  """
 get the saved password for a domain
 ./honey_client -getpass <master-password> <domain>
-e.g. ./honey_client -addpass AwesomeS@la google.com
+e.g. ./honey_client -getpass AwesomeS@la google.com
 """
     if len(args)<2:
         return h_string

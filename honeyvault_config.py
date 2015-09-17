@@ -39,7 +39,7 @@ REPR_SIZE = 4 # number of bytes to represent an integer. normally 4byte.
 MAX_INT = 256**REPR_SIZE # value of maximum integer in this representation.
 
 
-PASSWORD_LENGTH = 50 # length of the password encoding
+PASSWORD_LENGTH = 100 # length of the password encoding
 HONEY_VAULT_GRAMMAR_SIZE  = 200   # 400 bytes, 50 integers/rules
 HONEY_VAULT_S1 = 1000 # This controls the size of your password vault. If you want to increase the size
 HONEY_VAULT_S2 = 1000 # feel free to change these. Remember to delete static/vault.db after this.
