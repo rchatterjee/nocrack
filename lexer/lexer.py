@@ -172,7 +172,7 @@ class NonT_W(NonT):
     def parse_tree(self):
         pt = ParseTree()
         pt.add_rule((self.sym, self.prod))
-        pt.extend_rule(self.L.parse_tree())
+        pt.extend_rules(self.L.parse_tree())
         return pt
 
     def rule_set(self):

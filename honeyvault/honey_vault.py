@@ -91,6 +91,11 @@ class HoneyVault:
             self.load(mp)
 
     def gen_password(self, mp, domain_list, size=10):
+        """
+        generates random password strings for each of the domail
+        specified, and saves it in corresponding location.
+        Master password (@mp) is required for that.
+        """
         r_dte = DTE_random()
         reply = []
         for d in domain_list:
@@ -152,7 +157,7 @@ class HoneyVault:
         self.H = self.pcfg.encode_grammar(nG)
         self.dte = ndte
         
-    def get_password(self, domain_list):
+    def get_password(self, domain_list, send_raw=False):
         pw_list = []
         r_dte = DTE_random()
         for d in domain_list:
@@ -162,7 +167,7 @@ class HoneyVault:
             else:
                 pw = self.dte.decode_pw(self.S[i])
             pw_list.append(pw)
-        return OrderedDict(zip(domain_list, pw_list)) 
+        return OrderedDict(zip(domain_list, pw_list))
 
     def get_sample_decoding(self):
         """

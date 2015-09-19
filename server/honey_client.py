@@ -7,7 +7,7 @@ from publicsuffix import PublicSuffixList
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from honeyvault.honey_vault import HoneyVault
-import json
+import json, unittest
 
 HONEY_SERVER_URL = "http://localhost:5000/"
 VAULT_FILE  = 'static/vault.db'
@@ -173,7 +173,7 @@ e.g. ./honey_client -getpass AwesomeS@la google.com
         return h_string
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
-    return hv.get_password(get_exact_domains(args[1:]))
+    return json.dumps(hv.get_password(get_exact_domains(args[1:])), indent=4)
 
 
 def import_vault( *args ):
@@ -239,7 +239,7 @@ e.g. ./honey_client -addpass AwesomeS@la google.com
     mp = args[0]
     domain_list = args[1:]
     hv = HoneyVault(VAULT_FILE, mp)
-    return hv.gen_password(mp, domain_list)
+    return json.dumps(hv.gen_password(mp, domain_list), indent=4)
 
 def get_all_pass( *args ):
     h_string =  """
@@ -259,20 +259,7 @@ def default( *args ):
                     if k != '-help' )
     return "Write any of the option to know about their requirements!"
     
-def test_getpass(*args):
-    h_string =  """
-Just a test framework for testing getpass  function.
-"""
-    if len(args)<1:
-        return h_string
-    for i,l in open('password_leak_store/myspace-withcount.txt'):
-        if i>cnt: break
-        if l and len(l.split())>1:
-            print l,
-            l = l.strip().split()
-            c, w = l[0], ' '.join(l[1:])
-            print '~~>', get_pass(w, 'google.com')
-
+        
 command_func_map = {
     '-register': register,
     '-verify': verify,
@@ -286,7 +273,7 @@ command_func_map = {
     '-genpass': gen_pass,
     '-import': import_vault,
     '-export': export_vault,
-    '-test': test_getpass,
+    '-test': unittest.main,
     '-getall': get_all_pass
 }
 
