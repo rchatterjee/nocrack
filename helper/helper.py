@@ -20,7 +20,7 @@ class random:
     @staticmethod
     def randints(s, e, n=1):
         """
-        returns n uniform random numbers from [s, e]
+        returns n uniform random numbers from [s, e] (including both ends)
         """
         assert e>=s, "Wrong range: [{}, {}]".format(s, e)
         n = max(1, n)
@@ -44,7 +44,7 @@ class random:
     
     @staticmethod
     def sample(arr, n):
-        return [arr[i] for i in random.randints(0, len(arr), n)]
+        return [arr[i] for i in random.randints(0, len(arr)-1, n)]
 
 class Token:
     def __init__(self, v_=None, n_=None, o_=None):
@@ -116,7 +116,7 @@ def print_once( *args ):
         print args
     
 def whatchar(c):
-    if c.isalpha(): return 'L';
+    if c.isalpha(): return 'W';
     if c.isdigit():
         return 'D';
     else:

@@ -18,7 +18,8 @@ from dawg import IntDAWG, DAWG
 import marisa_trie
 import struct, json, bz2, re
 from lexer_helper import Date, KeyBoard, RuleSet, ParseTree
-from helper.helper import open_, getIndex, convert2group, bin_search, print_once, random
+from helper.helper import (open_, getIndex, convert2group, 
+                           bin_search, print_once, random, whatchar, DEBUG)
 import honeyvault_config as hny_config
 from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
 from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
@@ -47,36 +48,6 @@ class TrainedGrammar(object):
     def load(self, filename):
         self.G = json.load(open_(filename),
                            object_pairs_hook=OrderedDict)
-
-        """
-        An effort to update the grammar structure. Will fix the original
-        grammar later. 
-        Grammar shouldlook like:
-          G -> W,G | D,G | Y,G | R,G | K,G | .. | W | D | Y | R | K
-          W -> W1 | W2 | W3 ..
-          D -> D1 | D2 .. 
-        """
-        new_start = defaultdict(int)
-        new_g = defaultdict(dict)
-        for ntkey,v in self.G['G'].items():
-            ntkey = ntkey.split(',')
-            for i,k in enumerate(ntkey):
-                if len(k)>1:
-                    new_g[k[0]][k] = new_g[k[0]].get(k, 0) + v
-                if i==len(ntkey)-1:
-                    new_non_t = ntkey[-1][0]
-                else:
-                    new_non_t = k[0]+',G'                    
-                new_start[new_non_t] += v
-
-        for k in new_g.keys():
-            v = new_g[k]
-            new_g[k] = OrderedDict(sorted(v.items(), key=operator.itemgetter(0)))
-
-        self.G.update(new_g)
-        self.G['G'] = OrderedDict(sorted(new_start.items(), key=operator.itemgetter(0)))
-        
-        # Calculate CDF for faster processing
         for k,v in self.G.items():
             if self.cal_cdf:
                 print_err("Calculating CDF!")
@@ -105,6 +76,9 @@ class TrainedGrammar(object):
         
     def get_actual_NonTlist(self, lhs, rhs):
         if lhs == 'G':
+            # Don't include, "W1,G", "D1,G" etc.
+            if rhs.endswith(',G'):
+                return []
             return rhs.split(',')
         elif lhs == 'T':
             return ['%s_%s' % (lhs,c)
@@ -193,23 +167,40 @@ class TrainedGrammar(object):
                     # print "Not sure why it reached here. But it did!"
                     # print i, j, word[i: i+j+1]
         return A[(0, len(word)-1)]
-        
+
+    def default_parse_tree(self, word):
+        """
+        Returns the default parse of a word. Default parse is
+        G -> W1,G | D1,G | Y1,G | W1 | D1 | Y1
+        This parses any string over the allowed alphabet
+        returns a l-o-r traversed parse tree
+        """
+        pt = ParseTree()
+        n = len(word)
+        for i,c in enumerate(word):
+            r = whatchar(c) + '1'
+            if i<n-1:
+                r = r + ',G'
+            pt.add_rule(('G', r))
+            pt.add_rule((r[:2], c.lower()))
+            if r.startswith('W'):
+                nont_l = NonT_L(c, c)
+                pt.extend_rules(nont_l.parse_tree())
+
+        return pt
+
     def l_parse_tree(self, word): # leftmost parse-tree
         pt = ParseTree()
         p = self.parse(word)
         if not p:
             print "Failing at ", word.encode('utf-8')
             return pt
-        #pt.add_rule(('G', p[0]))  --- OLD ONE, adding new rules
-        for i, elem in enumerate(zip(p[0].split(','), p[1])):
-            l, each_r = elem
-            # G -> WG | DG | W | D.. etc; W -> W2 | W3; D -> D3 | D5..
-            new_non_t = l[0] if i==len(p[1])-1 else l[0]+',G'
-            new_t = l if len(l)>1 else None
-            pt.add_rule(('G', new_non_t))
-            if new_t:
-                pt.add_rule((l[0], new_t))
+        #assert p[0] in self.G['G'], "Wrong rule: {} --> {}".format('G', p[0])
+        if p[0] not in self.G['G']:
+            return self.default_parse_tree(word)
 
+        pt.add_rule(('G', p[0]))
+        for l, each_r in zip(p[0].split(','), p[1]):
             if isinstance(each_r, basestring):
                 pt.add_rule((l, each_r))
             elif l.startswith('W'):
@@ -223,7 +214,7 @@ class TrainedGrammar(object):
                 rule_name = ','.join([r[0].replace('T_','')
                                      for r in p])
                 pt.add_rule((l, rule_name))
-                pt.extend_rule(p)
+                pt.extend_rules(p)
             else:
                 print "Something is severly wrong"
         return pt
@@ -239,11 +230,14 @@ class TrainedGrammar(object):
         rhs_dict = self.G[l]
         try:
             i = rhs_dict.keys().index(r)
+            if DEBUG:
+                c = rhs_dict.keys()[i]
+                assert c==r, "The index is wrong"
         except ValueError:
             print "{} not in the rhs_dict (l: '{}', rhs_dict: {})".format(r, l, self.G[l])
             raise ValueError
         l_pt = sum(rhs_dict.values()[:i])
-        r_pt = l_pt + rhs_dict[r]
+        r_pt = l_pt + rhs_dict[r]-1
         return convert2group(random.randint(l_pt,r_pt),
                              rhs_dict['__total__'])
 
@@ -252,6 +246,12 @@ class TrainedGrammar(object):
         try:
             code_g = [self.encode_rule(*p)
                   for p in pt]
+            if DEBUG:
+                for p in pt:
+                    t = self.encode_rule(*p)
+                    c = self.decode_rule(p[0], t)
+                    assert p[1] == c, "Decoding {} we got {}. Expecting {}"\
+                        .format(t, c, p[1])
         except ValueError:
             print "Error in encoding: \"{}\"".format(pw)
             return []
@@ -313,22 +313,45 @@ class TrainedGrammar(object):
 
     def is_grammar(self):
         return bool(self.G['G'])
+
     def __str__(self):
         return json.dumps(self.G['G'], indent=2)
+    
+    def nonterminals(self):
+        return self.G.keys()
 
     # def __nonzero__(self):
     #     return bool(self.G['G'])
     # __bool__ = __nonzero__
+
+
+######################### END of TrainedGrammar class ################
+
+
+
+
 
 class SubGrammar(TrainedGrammar):
     def __init__(self, base_pcfg):
         self.cal_cdf = False
         R = RuleSet()
         self.base_pcfg = base_pcfg
-        R.update_set(RuleSet(d={'L': self.base_pcfg['L']}))
-        for c in string.ascii_lowercase:
+        default_keys = []
+        # default keys
+        R.update_set(RuleSet(d={'L': self.base_pcfg['L']})) # L
+        default_keys.append('L')
+        for c in string.ascii_lowercase: # L_*
             x = 'L_%s' % c
+            default_keys.append(x)
             R.update_set(RuleSet(d={x: self.base_pcfg[x]}))
+        for k,v in self.base_pcfg['G'].items():
+            if k.endswith(',G'):   # W1, D1, Y1
+                R.G['G'][k] = v
+                k = k[:-2] # W1 <-- W1,G
+                default_keys.append(k)
+                R.update_set(RuleSet(d={k: self.base_pcfg[k]}))
+
+        self._default_keys = set(default_keys)
         self.R = R
         self.G = R.G
         self.date = Date()
@@ -381,6 +404,9 @@ class SubGrammar(TrainedGrammar):
                     s += v[r]
             v['__total__'] = s
     
+    def default_keys(self):
+        return self._default_keys
+        
     def __str__(self):
         return str(self.R)
     
@@ -389,7 +415,7 @@ class SubGrammar(TrainedGrammar):
 
 if __name__=='__main__':
     tg = TrainedGrammar()
-    if sys.argv[1] == '-pw':
+    if sys.argv[1] == '-encode':
         code_g =  tg.encode_pw(sys.argv[2])
         print code_g
         print tg.decode_pw(code_g)
@@ -399,4 +425,6 @@ if __name__=='__main__':
     elif sys.argv[1] == '-parse':
         print 'Parse',  tg.parse(sys.argv[2])
     elif sys.argv[1] == '-ptree':
-        print 'Parse',  tg.l_parse_tree(sys.argv[2])
+        pw = sys.argv[2]
+        pt = tg.l_parse_tree(pw)
+        print 'Parse Tree for {}\n{}\nSize: {}'.format(pw, pt, len(pt))

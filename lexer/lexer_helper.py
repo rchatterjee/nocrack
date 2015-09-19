@@ -90,7 +90,7 @@ class ParseTree(object):
     def add_rule(self, rule, f=0):
         self.tree.append(rule)
 
-    def extend_rule(self, ptree):
+    def extend_rules(self, ptree):
         self.tree.extend(ptree.tree)
 
     def get_rule(self):
@@ -122,6 +122,9 @@ class ParseTree(object):
 
     def __getitem__(self, index):
         return self.tree[index]
+
+    def __len__(self):
+        return len(self.tree)
 
     def save(self, fname):
         json.dumps(self.tree, fname)

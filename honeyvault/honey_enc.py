@@ -220,10 +220,11 @@ class DTE_large(DTE):
         vd = VaultDistribution()
         stack = ['G']
         code_g = []
-        done = []
+        done = list(G.default_keys())
+
         while stack:
             head = stack.pop()
-            assert head not in done
+            assert head not in done, "head={} already in done={}".format(head, done)
             done.append(head)
             rule_dict = G[head]
             t_set = []
@@ -240,13 +241,12 @@ class DTE_large(DTE):
             n = len(rule_dict.keys())-1
             code_g.append(vd.encode_vault_size(head, n))
             if n<0: 
-                print "Sorry I cannot encode your password! Please choose"
-                print "something different, password12"
+                print "Sorry I cannot encode your password ('{}')! \nPlease choose"\
+                    " something different, like password12".format((head, rule_dict.keys()))
                 exit(0)
             assert n == vd.decode_vault_size(head, code_g[-1]), "Vault size encoding mismatch. "\
                 "\nhead: \"{}\", code_g: {}, n: {}, decoded_vault_size: {}"\
                     .format(head, code_g[-1], n, vd.decode_vault_size(head, code_g[-1]))
-                                                                             
             code_g.extend([self.encode(head, r) 
                            for r in rule_dict.keys()
                            if r != '__total__'])
