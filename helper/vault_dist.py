@@ -40,10 +40,12 @@ class VaultDistribution:
 
     def decode_vault_size(self, lhs, cf):
         assert not lhs.startswith('L')
-        cf %= self.G.get(lhs, {'__total__': 0})['__total__']
+        assert lhs in self.G, "lhs={} must be in G. I cannot find it in\nG.keys()={}"\
+            .format(lhs, self.G.keys())
+        cf %= self.G[lhs]['__total__']
         if cf == 0:
             print_err("Grammar of size 0!!!!\nI don't think the decryption will "
-                      "be right after this. I am sorry.", lhs, cf)
+                      "be right after this. I am sorry. Argument: (lhs: {}, cf: {})".format(lhs, cf))
         i = getIndex(cf, self.G[lhs].values())
         return i+1
 

@@ -26,7 +26,7 @@ class DTE(object):
     def __init__(self, grammar=None):
         self.G = grammar
         if not self.G:
-            self.G = SubGrammar()
+            raise "NowSubgrammar" 
             # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
@@ -362,8 +362,6 @@ def Encode_spcl( m, grammar ):
 
 
 def main():
-    #print T.tokenize('P@$$w0rd', True)
-    #exit(0)
     dte = DTE()
     scanner = Scanner()
     print "Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;

@@ -88,7 +88,7 @@ class TrainedGrammar(object):
             return ['%s_%s' % (lhs,c)
                     for c in rhs]
         elif lhs in ['W', 'D', 'Y', 'R', 'K']:
-            return [rhs]
+            return []
         else:
             return []
 
@@ -327,8 +327,7 @@ class TrainedGrammar(object):
 
 ######################### END of TrainedGrammar class ################
 
-
-
+######################### BEGIN SubGrammar class starts ##############
 
 
 class SubGrammar(TrainedGrammar):
@@ -372,6 +371,12 @@ class SubGrammar(TrainedGrammar):
                  for x in v
                  if k.startswith('W')]
         self.Wdawg = IntDAWG(Wlist)
+        for k,v in self.G.items():
+            if '__total__' not in v:
+                print '__total__ should be there in the keys!!. I am adding one.'
+                v['__total__'] = sum(v.values())
+            
+            
         if 'T' in self.G:
             self.date = Date(T_rules=[x 
                                       for x in self.G['T'].keys()
