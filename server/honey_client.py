@@ -252,7 +252,7 @@ e.g. ./honey_client -getall AwesomeS@la
     mp = args[0]
     hv = HoneyVault(VAULT_FILE, mp)
     return '\n'.join(str(s) for s in hv.get_all_pass())
-    
+
 def default( *args ):
     print '\n'.join("%s : %s" % (k,v().split('\n')[1]) 
                     for k,v in command_func_map.items() 
