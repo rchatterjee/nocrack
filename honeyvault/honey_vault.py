@@ -28,13 +28,19 @@ def copy_from_old_parallel( args ):
     odte, ndte, i, p = args
     ret = []
     pw = odte.decode_pw(p)
-    if not pw: return (i,[])
+    if not pw: 
+        return (i, pw, [])
     ret = ndte.encode_pw(pw)
     if not ret:
         print "Cool I failed in encoding!! Kudos to me. pw: {}, i: {}"\
             .format(pw, i)
         ret = pw
-    return (i,ret)
+    else:
+        tpw = ndte.decode_pw(ret)
+        assert pw == tpw, "Encoding-Decoding password is wrong. Expecting '{}', got '{}'"\
+            .format(pw, tpw)
+
+    return (i, pw, ret)
         
 class HoneyVault:
     s1 = hny_config.HONEY_VAULT_S1
@@ -118,21 +124,24 @@ class HoneyVault:
         # way. The code is supposed to pick one parse tree at random. Currently picking the most 
         # probable one. Need to fix for security reason. Will add a ticket. 
         new_encoding_of_old_pw = [] 
+        current_passwords = ['' for _ in xrange(hny_config.HONEY_VAULT_STORAGE_SIZE)]
 
         if self.dte and (ndte != self.dte):
             # if new dte is different then copy the existing human chosen passwords. 
             # Machine generated passwords are not necessary to reencode. As their grammar
             # does not change. NEED TO CHECK SECURITY.
-            print_production("\nSome new rules found, so adding them to the new grammar. Should not take too long...\n")
+            print_production("\nSome new rules found, so adding them to the new grammar. "\
+                             "Should not take too long...\n")
             data = [(self.dte, ndte, i, p)
                         for i,p in enumerate(self.S)
-                        if self.machine_pass_set[i] == '0']            
+                        if self.machine_pass_set[i] == '0']
             result = ProcessParallel(copy_from_old_parallel, data, func_load=100)
-            
-            for i, p in result:
+
+            for i,pw, pw_encodings in result:
                 if isinstance(p, basestring):
-                    new_encoding_of_old_pw.append((i, p))
-                self.S[i] = p
+                    new_encoding_of_old_pw.append((i, pw_encodings))
+                current_passwords[i] = pw
+                self.S[i] = pw_encodings
 
             # print_err(self.H[:10])
             # G_ = self.pcfg.decode_grammar(self.H)
@@ -142,18 +151,29 @@ class HoneyVault:
             # assert G_ == nG
 
         print_production("\nAdding new passowrds..\n")
-        for d,p in domain_pw_map.items():
-            i = self.get_domain_index(d)
-            self.S[i] = ndte.encode_pw(p)
+        for domain, pw in domain_pw_map.items():
+            i = self.get_domain_index(domain)
+            current_passwords[i] = pw
+            self.S[i] = ndte.encode_pw(pw)
             self.machine_pass_set[i] = '0'
 
         # Cleaning the mess because of missed passwords
-        print_err("Fixing Mess!!", new_encoding_of_old_pw)
-        nG.update_grammar(*[p for i,p in new_encoding_of_old_pw])
-        for i,p in new_encoding_of_old_pw:
-            self.S[i] = ndte.encode_pw(p)
-            self.machine_pass_set[i] = '0'
-
+        # Because some password might have failed in copy_from_old_function, They need to be
+        # re-encoded 
+        if new_encoding_of_old_pw:
+            print_err("\n<<<<<<\nFixing Mess!!\n{}>>>>>>>".format(new_encoding_of_old_pw))
+            nG.update_grammar(*[p for i,p in new_encoding_of_old_pw])
+            for i,p in new_encoding_of_old_pw:
+                self.S[i] = ndte.encode_pw(p)
+                self.machine_pass_set[i] = '0'
+        
+        if hny_config.DEBUG:
+            for i,pw_encodings in enumerate(self.S):
+                if self.machine_pass_set[i] == '0':
+                    tpw = ndte.decode_pw(pw_encodings)
+                    assert tpw == current_passwords[i],\
+                        "The re-encoding is faulty. Expecting: {} at {}. Got {}.".format(pw, i, tpw)
+                
         self.H = self.pcfg.encode_grammar(nG)
         self.dte = ndte
         

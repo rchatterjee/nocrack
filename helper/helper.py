@@ -24,7 +24,7 @@ class random:
         """
         assert e>=s, "Wrong range: [{}, {}]".format(s, e)
         n = max(1, n)
-        arr = [s + a%(e-s+1) for a in struct.unpack('<%dL'%n, os.urandom(4*n))]
+        arr = [s + a%(e-s) for a in struct.unpack('<%dL'%n, os.urandom(4*n))]
         return arr
 
     @staticmethod
