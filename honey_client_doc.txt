@@ -7,7 +7,7 @@ following link to install it locally:
  - http://stackoverflow.com/a/5507373/1792013
 
 # for python 2.6, try running after installing 'simplejson'
- $ pip install simplejson
+$ pip install simplejson
 
 # Dont forget to activate your virtualvenv
 $ source honeyvenv/bin/activate

@@ -29,9 +29,32 @@ class TeastDteRandom(unittest.TestCase):
                              "G: {}\nGprime: {}\n".format(G.nonterminals(), Gprime.nonterminals()))
 
 
-        
+class TestNormalDTE(unittest.TestCase):
+    def test_DTE(self):
+        vault_file = VAULT_FILE+'~test'
+        mpw = 'Masterpassw0rd'+str(random.randint(0,100))
+        hv = HoneyVault(vault_file, mpw)
+        PW_set = dict((i, hv.dte.decode_pw(pw_encodings)) for i, pw_encodings in \
+                  enumerate(hv.S) if hv.machine_pass_set[i]=='0')
+        for i, pw in PW_set.items():
+            s = hv.dte.encode_pw(pw)
+            tpw = hv.dte.decode_pw(s)
+            self.assertEqual(tpw, pw, "Encode-decode pw is wrong. {}: {} ----> {}".format(i, pw, tpw))
+        print "All encode-decoing test passed"
+        return
+        hv.add_password({'google.com': 'password' + str(random.randint(0, 1000))})
+        ignore = set([hv.get_domain_index('google.com')])
+
+        for i, pw_encodings in enumerate(hv.S):
+            if hv.machine_pass_set[i] == '0' and i not in ignore:
+                npw = hv.dte.decode_pw(pw_encodings)
+                self.assertEqual(PW_set[i], npw, "New passwords changed!!!"\
+                    "Expecting: '{}' at {}. Got '{}'")
+
+
 class TestHoneyClient(unittest.TestCase):
     def test_getpass(self):
+        return
         h_string =  """
         Just a test framework for testing getpass  function.
         """
