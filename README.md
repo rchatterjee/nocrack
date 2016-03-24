@@ -140,4 +140,4 @@ Note, `-import` and `-export` commands are not implemented now!
   ```bash
   $ python buildPCFG.py --build-all               # Alias over the above commands. Preferable :P. 
   ```
-  This will take while depending on the size of the password leak file. 
+  This will take a while depending on the size of the password leak file. 
