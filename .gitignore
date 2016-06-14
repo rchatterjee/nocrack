@@ -14,4 +14,4 @@ hvenv/
 static/token
 *.swp
 token_*
-testRes/data_vault/
+testRes/
