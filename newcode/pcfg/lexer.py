@@ -135,9 +135,10 @@ class NonT_L(NonT):
 
 class NonT_W(NonT):
     sym, prod, prob = 'W', '', 0.0
-    word_dawg  = IntDAWG().load('data/English_30000.dawg')
-    fname_dawg = IntDAWG().load('data/facebook-firstnames-withcount.dawg')
-    lname_dawg = IntDAWG().load('data/facebook-lastnames-withcount.dawg')
+    thisdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    word_dawg  = IntDAWG().load('{}/data/English_30000.dawg'.format(thisdir))
+    fname_dawg = IntDAWG().load('{}/data/facebook-firstnames-withcount.dawg'.format(thisdir))
+    lname_dawg = IntDAWG().load('{}/data/facebook-lastnames-withcount.dawg'.format(thisdir))
     total_f = word_dawg[u'__total__'] + \
         fname_dawg[u'__total__'] + \
         lname_dawg[u'__total__']

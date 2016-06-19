@@ -11,17 +11,18 @@ import os, math
 BASE_DIR = os.getcwd()
 DICTIONARY_SOURCE_FILE = "../PasswordDictionary/passwords/combined-withcout.txt.bz2"
 PASSWORD_LEAK   = "../PasswordDictionary/passwords/rockyou-withcount.txt.bz2"
+thisdir = os.path.dirname(os.path.abspath(__file__))
 
 
 #DIC_TRIE_FILE = 'data/english.tri'
-DICTIONARY_DAWG = 'Dictionary_Store/dictionary1.1.dawg'
-STANDARD_DIC_FILE = "Dictionary_Store/standard_english.tri"
+DICTIONARY_DAWG = '{}/Dictionary_Store/dictionary1.1.dawg'.format(thisdir)
+STANDARD_DIC_FILE = "{}/Dictionary_Store/standard_english.tri".format(thisdir)
 
-GRAMMAR_OUTPUT_FILE = "./data/combined.gmr.bz2"
-GRAMMAR_INPUT_FILE  = "./data/combined.tri.bz2"
-HANDGRAMMAR_FILE    = "./data/grammar.txt"
+GRAMMAR_OUTPUT_FILE = "{}/data/combined.gmr.bz2".format(thisdir)
+GRAMMAR_INPUT_FILE  = "{}/data/combined.tri.bz2".format(thisdir)
+HANDGRAMMAR_FILE    = "{}/data/grammar.txt".format(thisdir)
 
-GRAMMAR_DIR = './Grammar/'
+GRAMMAR_DIR = '{}/Grammar/'.format(thisdir)
 
 # Dont change 
 EPSILON = '|_|'
@@ -60,8 +61,8 @@ SECURITY_PARAM = 16
 SECURITY_PARAM_IN_BASE64 = (SECURITY_PARAM * 4)/3 + 1
 
 # Static domain mapping list
-STATIC_DOMAIN_LIST = 'server/static_domain_map.txt'
-STATIC_DOMAIN_HASH_LIST = 'static/static_domain_hashes.txt'
+STATIC_DOMAIN_LIST = '{}/server/static_domain_map.txt'.format(thisdir)
+STATIC_DOMAIN_HASH_LIST = '{}/static/static_domain_hashes.txt'.format(thisdir)
 
 
 
