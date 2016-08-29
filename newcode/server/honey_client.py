@@ -4,7 +4,7 @@ import binascii
 from Crypto.Hash import SHA256
 from urlparse import urlparse
 from publicsuffix import PublicSuffixList
-BASE_DIR = os.getcwd()
+BASE_DIR = os.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
 from dte.honey_vault import HoneyVault
 import json#, unittest

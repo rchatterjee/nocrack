@@ -152,8 +152,10 @@ class TrainedGrammar(object):
             return None
         # NO IDEA HOW TO randomly pick a parse tree!! @@TODO
 
-    def parse(self, word):        
+    def parse(self, word):   
         A = {}
+        if not word:
+            return ()
         for j in range(len(word)):
             for i in range(len(word)-j):
                 A[(i, i+j)] = self.get_all_matches(word[i:j+i+1])
@@ -257,6 +259,10 @@ class TrainedGrammar(object):
 
     def decode_rule(self, l, p):
         rhs_dict = self.G[l]
+        if not rhs_dict:
+            return ''
+        assert '__total__' in rhs_dict, "__total__ not in {!r}, l={!r}"\
+            .format(rhs_dict, l)
         p %= rhs_dict['__total__']
         if self.cal_cdf:
             if len(rhs_dict)>1000: print_once(l, len(rhs_dict))

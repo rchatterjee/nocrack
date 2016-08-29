@@ -31,10 +31,9 @@ Dont forget to activate your virtualvenv
   $ source honeyvenv/bin/activate
   (honeyvenv) $
   ```
-  To run the nocrack server run, 
-  ```bash
-  $ python server/honey_server.py
-  ```
+
+  **(I am doing a bulk restructuring of the code. So some part of the usage might be inconcistent!)**
+
 The main command interface for nocrack is the `hone_client.py` file. 
 It takes several options, explained one by one below.
 
@@ -55,6 +54,12 @@ It takes several options, explained one by one below.
 -default - <function default at 0x1aad2a8>
 -verify - <function verify at 0x1aa8d70>
 ```
+
+
+To run the nocrack server run, 
+  ```bash
+  $ python server/honey_server.py
+  ```
 
 (a) __Add Password__ 
 ```bash
