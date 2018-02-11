@@ -1,4 +1,7 @@
-import os, sys, json, math
+import json
+import math
+import os
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
@@ -10,12 +13,10 @@ from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
 from Crypto.Util import Counter
 import copy, struct
-from helper import (convert2group, open_, getIndex, print_err, ProcessParallel, random,
+from helper import (open_, print_err, ProcessParallel, random,
                     print_production)
 from pcfg.pcfg import VaultDistPCFG
 from collections import OrderedDict
-from array import array
-from pprint import pprint
 
 # from IPython.core import ultratb
 # sys.excepthook = ultratb.FormattedTB(color_scheme='Linux', call_pdb=1)
@@ -40,7 +41,7 @@ def copy_from_old_parallel(args):
     ret = ndte.encode_pw(pw)
     if not ret:
         print("Cool I failed in encoding!! Kudos to me. pw: {}, i: {}" \
-            .format(pw, i))
+              .format(pw, i))
         ret = pw
     else:
         tpw = ndte.decode_pw(ret)

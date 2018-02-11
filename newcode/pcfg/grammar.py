@@ -1,17 +1,16 @@
 #!/usr/bin/python
-import os, sys
+import os
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from dawg import DAWG
 import marisa_trie
-import struct, json, bz2, re
+import json
 from helper import open_, getIndex
 import honeyvault_config as hny_config
 from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
-from scanner_helper import Tweaker, GrammarStructure
+from scanner_helper import GrammarStructure
 from collections import OrderedDict, defaultdict
-from pprint import pprint
 
 
 # -----------------------NOT USED! --------------------------------------------------
@@ -186,7 +185,7 @@ class TrainedGrammar(Grammar):
             i = T.key_id(str(w))
             if i < 0:
                 print("Could not find {w} in the trie." \
-                    .format(**locals()))
+                      .format(**locals()))
                 raise KeyError
             S = sum(A[:i])
             return S, S + A[i]

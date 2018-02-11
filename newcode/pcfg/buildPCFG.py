@@ -1,12 +1,17 @@
 #!/usr/bin/python
 
-import csv, sys, os, re, bz2
-from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
-from .lexer import lexer
-from .lexer.lexer_helper import GrammarStructure
-from helper import open_
+import bz2
+import csv
+import os
+import re
 import resource  # For checking memory usage
+import sys
+
 import marisa_trie
+from helper import open_
+
+from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
+from .lexer.lexer_helper import GrammarStructure
 
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]

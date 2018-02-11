@@ -11,24 +11,21 @@ L -> Capitalize | ALL-UPPER | all-lower | l33t
 G -> DG | YG | WG | RG | SG | KG | D | Y | W | R | S | K
 """
 
-import os, sys, string
+import os
+import string
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from dawg import IntDAWG, DAWG
-import marisa_trie
-import struct, json, bz2, re
-from .lexer_helper import Date, KeyBoard, RuleSet, ParseTree
+import json
+from .lexer_helper import Date, RuleSet, ParseTree
 from helper import (open_, getIndex, convert2group, print_err,
                     bin_search, print_once, random, whatchar, DEBUG)
 import honeyvault_config as hny_config
-from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
-from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
-from collections import OrderedDict, defaultdict
-from pprint import pprint
-import resource  # For checking memory usage
+from honeyvault_config import GRAMMAR_DIR
+from collections import OrderedDict
 from .lexer import NonT_L, get_nont_class
-import operator
 import sys
 
 GRAMMAR_FILE = GRAMMAR_DIR + '/grammar.cfg.bz2'
@@ -513,7 +510,7 @@ class VaultDistPCFG:
         use_ful = 5
         for k in ['W', 'D', 'Y', 'R', 'T']:
             self.G[k] = OrderedDict(list(zip((str(x) for x in range(MAX_ALLOWED + 1)[1:]),
-                                        [100] * use_ful + [5] * (MAX_ALLOWED - use_ful))))
+                                             [100] * use_ful + [5] * (MAX_ALLOWED - use_ful))))
 
         for k, v in list(self.G.items()):
             v['__total__'] = sum(v.values())

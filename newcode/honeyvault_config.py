@@ -7,7 +7,8 @@
 
 # empty lines and line beginning with '#' will be discarded
 # exact dicionary path should be given.
-import os, math
+import math
+import os
 
 BASE_DIR = os.getcwd()
 DICTIONARY_SOURCE_FILE = "../PasswordDictionary/passwords/combined-withcout.txt.bz2"

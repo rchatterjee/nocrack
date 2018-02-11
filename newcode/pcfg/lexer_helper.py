@@ -1,4 +1,6 @@
-import re, json, string
+import json
+import re
+import string
 from collections import OrderedDict, defaultdict
 
 

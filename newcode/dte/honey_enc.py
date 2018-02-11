@@ -5,17 +5,13 @@ This script implements HoneyEncription class for password vauld.
 it needs a PCFG in the following format.
 """
 
-import sys, os, math, struct, bz2, resource
+import sys, os, struct, resource
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 import string
-import marisa_trie
-from collections import deque
-from pcfg.pcfg import TrainedGrammar, SubGrammar
 import honeyvault_config as hny_config
 from helper import getIndex, convert2group, random
-from honeyvault_config import NONTERMINAL, TERMINAL
 
 MAX_INT = hny_config.MAX_INT
 
@@ -97,7 +93,7 @@ class DTE_random(DTE):
 
         N = random.randints(0, MAX_INT, size + 1)
         N[0] += (size - self.MIN_PW_LENGTH) - N[0] % (
-        self.MAX_ALLOWED - self.MIN_PW_LENGTH)  # s.t., N[0] % MAX_ALLOWED = size
+            self.MAX_ALLOWED - self.MIN_PW_LENGTH)  # s.t., N[0] % MAX_ALLOWED = size
 
         P = [s[N[i + 1] % len(s)] for i, s in enumerate(self.must_set)]  # must set characters
 

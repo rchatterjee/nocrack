@@ -1,18 +1,21 @@
-from flask.ext.sqlalchemy import SQLAlchemy
-from flask import Flask, request
+import binascii
+import datetime
+import json
+import os
+import re
+import sys
+from Crypto import Random
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
-from Crypto.Random import random
 from Crypto.Util import Counter
-from Crypto import Random
-import binascii
-import re, datetime, sys, os, json
+
+from flask import Flask, request
+from flask.ext.sqlalchemy import SQLAlchemy
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from honeyvault_config import (SECURITY_PARAM, HONEY_VAULT_ENCODING_SIZE,
-                               SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST,
+from honeyvault_config import (SECURITY_PARAM, SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST,
                                HONEY_VAULT_TOTAL_CIPHER_SIZE)
 
 try:

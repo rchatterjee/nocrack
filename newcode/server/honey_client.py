@@ -1,11 +1,17 @@
-from dte.honey_vault import HoneyVault
-import os, sys
-import json  # , unittest
-import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse
 import binascii
+import json  # , unittest
+import sys
 from Crypto.Hash import SHA256
-from urllib.parse import urlparse
+
+import urllib.error
+import urllib.error
+import urllib.parse
+import urllib.parse
+import urllib.request
+import urllib.request
+from dte.honey_vault import HoneyVault
 from publicsuffix import PublicSuffixList
+from urllib.parse import urlparse
 
 HONEY_SERVER_URL = "http://localhost:5000/"
 VAULT_FILE = 'static/vault.db'
@@ -18,7 +24,7 @@ def b2a_base64(x):
 
 def create_request(sub_url, data):
     return urllib.request.Request(HONEY_SERVER_URL + sub_url,
-                           urllib.parse.urlencode(data))
+                                  urllib.parse.urlencode(data))
 
 
 def get_exact_domain(url):
@@ -160,7 +166,7 @@ e.g. ./honey_client -addpass AwesomeS@la google.com 'AmzingP@ss'
 password is correct. Otherwise you might accidentally spoile your whole
 vault. CAREFUL.  SAMPLE PASSWORDS:\n---> %s Are all of the correct to the best of
 your knowledge! (y/n)""" % \
-                  '\n---> '.join(hv.get_sample_decoding()))
+              '\n---> '.join(hv.get_sample_decoding()))
     if y.lower() == 'y':
         hv.save()
         return """
@@ -207,8 +213,8 @@ Check the following sample decoded passwords and make sure your master password
  is correct. Otherwise you might accidentally spoile your whole vault. CAREFUL.
  Ignore if this is the first time you are using this.  SAMPLE PASSWORDS: %s Are
  all of the correct to the best of your knowledge! (y/n)""" % \
-                  ','.join(hv.get_sample_decoding())
-                  )
+              ','.join(hv.get_sample_decoding())
+              )
     if y.lower() == 'y':
         hv.save()
         print("""

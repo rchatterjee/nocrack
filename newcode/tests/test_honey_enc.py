@@ -1,4 +1,5 @@
-import sys, os, math, struct, bz2, resource
+import os
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)

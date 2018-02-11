@@ -1,14 +1,13 @@
 #!/usr/bin/python
 
-import sys, os
-import bz2, re
-import marisa_trie
-import json
+import bz2
+import os
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from honeyvault_config import MAX_INT, DEBUG, PRODUCTION
-from os.path import (expanduser, basename)
+from os.path import (expanduser)
 import struct
 # opens file checking whether it is bz2 compressed or not.
 import tarfile

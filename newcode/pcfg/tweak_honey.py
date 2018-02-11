@@ -66,9 +66,9 @@ def checkNums():
     print(x, end=' ')
 
 
-if __name__ == "__main__":
-    NumArr = list(range(100))
-    n = 10;
-    while (n > 0):
-        print(checkNums());
-        n -= 1;
+    if __name__ == "__main__":
+        NumArr = list(range(100))
+        n = 10;
+        while (n > 0):
+            print(checkNums());
+            n -= 1;

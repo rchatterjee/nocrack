@@ -11,20 +11,18 @@ L -> Capitalize | ALL-UPPER | all-lower | l33t
 G -> <some-combination-of-those-NonTs>
 """
 
-import os, sys, string
+import os
+import string
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from dawg import IntDAWG, DAWG
-import marisa_trie
-import struct, json, bz2, re
-from .lexer_helper import Date, KeyBoard, RuleSet, ParseTree
-from helper import open_, getIndex
-import honeyvault_config as hny_config
-from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
+import bz2, re
+from .lexer_helper import Date, RuleSet, ParseTree
+from helper import open_
+from honeyvault_config import MIN_COUNT
 from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
-from collections import OrderedDict, defaultdict
-from pprint import pprint
 import resource  # For checking memory usage
 
 # Dictionaries:

@@ -1,10 +1,9 @@
-import os, sys
+import os
+import sys
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from dawg import IntDAWG
-import marisa_trie
-import struct, json, bz2, re
 from helper import open_
 
 sum_freq = 0
