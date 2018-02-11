@@ -2,8 +2,8 @@
 
 import csv, sys, os, re, bz2
 from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
-from lexer import lexer
-from lexer.lexer_helper import GrammarStructure
+from .lexer import lexer
+from .lexer.lexer_helper import GrammarStructure
 from helper import open_
 import resource  # For checking memory usage
 import marisa_trie
@@ -29,6 +29,8 @@ Letter: L, Capitalized: C
 Digit: D, Symbol: S
 ManglingRule: M
 '''
+
+
 ###################### --NEW VERSION-- ###################################
 
 
@@ -39,18 +41,18 @@ def buildpcfg(passwd_dictionary):
     allowed_sym = re.compile(r'[ \-_]')
     out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg'
     for n, line in enumerate(open_(passwd_dictionary)):
-        if n>resource_tracker:
-            r = MEMLIMMIT*1024 - \
+        if n > resource_tracker:
+            r = MEMLIMMIT * 1024 - \
                 resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n
+            print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
             if r < 0:
-                print '''
+                print('''
 Hitting the memory limit of 1GB,
 please increase the limit or use smaller data set.
 Lines processed, {0:d}
-'''.format(n)
+'''.format(n))
                 break;
-            resource_tracker += r/10+100;
+            resource_tracker += r / 10 + 100;
         # if n%1000==0: print n;
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
@@ -61,19 +63,19 @@ Lines processed, {0:d}
         try:
             w.decode('ascii')
         except UnicodeDecodeError:
-            continue    # not ascii hence return
-        if c < MIN_COUNT : # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
-            print "Word frequency dropped to %d for %s" % (c, w), n
+            continue  # not ascii hence return
+        if c < MIN_COUNT:  # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
+            print("Word frequency dropped to %d for %s" % (c, w), n)
             break  # Careful!!!
         G.insert(w, c)
         # print t
         # root_fl.write("%s\t<>\t%s\n" % (' '.join(line), '~'.join(str((x,y)) for x,y in zip(W, Tag))))
-        
+
     # TODO
-    #push_DotStar_IntoGrammar( grammar );
+    # push_DotStar_IntoGrammar( grammar );
     G.update_total_freq()
     G.save(bz2.BZ2File(out_grammar_fl, 'w'))
-    #marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
+    # marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
     return G
 
 
@@ -86,13 +88,13 @@ def breakwordsintotokens(passwd_dictionary):
     if not os.path.exists(GRAMMAR_DIR):
         os.mkdir(GRAMMAR_DIR)
     G_out_files = dict()
-    for k, f in GrammarStructure().getTermFiles().items():
+    for k, f in list(GrammarStructure().getTermFiles().items()):
         G_out_files[k] = os.path.join(GRAMMAR_DIR, f)
     Arr = {}
-    for k in G_out_files.keys():
+    for k in list(G_out_files.keys()):
         Arr[k] = dict()
-    out_file_name = 'data/'+os.path.basename(passwd_dictionary).split('.')[0]+'_out.tar.gz'
-    print passwd_dictionary, out_file_name
+    out_file_name = 'data/' + os.path.basename(passwd_dictionary).split('.')[0] + '_out.tar.gz'
+    print(passwd_dictionary, out_file_name)
     output_file = open(out_file_name, 'wb')
     csv_writer = csv.writer(output_file, delimiter=',',
                             quotechar='"')
@@ -101,17 +103,17 @@ def breakwordsintotokens(passwd_dictionary):
     # resource track
     resource_tracker = 5240
     for n, line in enumerate(open_(passwd_dictionary)):
-        if n>resource_tracker:
-            r = MEMLIMMIT*1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-            print "Memory Usage:", (MEMLIMMIT - r/1024.0), "Lineno:", n
+        if n > resource_tracker:
+            r = MEMLIMMIT * 1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
             if r < 0:
-                print """
+                print("""
 Hitting the memory limit of 1GB,
 please increase the limit or use smaller data set.
 Lines processed, %d
-""" % n
+""" % n)
                 break
-            resource_tracker += r/10+100
+            resource_tracker += r / 10 + 100
         # if n%1000==0: print n;
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
@@ -122,77 +124,81 @@ Lines processed, %d
         try:
             w.decode('ascii')
         except UnicodeDecodeError:
-            continue     # not ascii hence return
+            continue  # not ascii hence return
         if c < MIN_COUNT:
             break
         # P is the patterns, W is the unmangled words, U is the original
-        Tags, W, U  = T.tokenize(w, True) 
+        Tags, W, U = T.tokenize(w, True)
         # print t
         if 'password' in w:
-            print Tags, W
+            print(Tags, W)
         if Tags:
-            for t,w in zip(Tags, W):
+            for t, w in zip(Tags, W):
                 try:
                     Arr[t][w] += c
                 except KeyError:
-                    try: Arr[t][w] = c
+                    try:
+                        Arr[t][w] = c
                     except KeyError:
-                        print "Something is wrong:", Tags, W
+                        print("Something is wrong:", Tags, W)
             csv_writer.writerow([c, w, str(Tags), str(W), str(U)])
         else:
-            print 'Failed to Parse:', w
-    for k, D in Arr.items():
-        T = marisa_trie.Trie(D.keys())
+            print('Failed to Parse:', w)
+    for k, D in list(Arr.items()):
+        T = marisa_trie.Trie(list(D.keys()))
         T.save(G_out_files[k] + '.tri')
-        n = len(D.keys())+1
-        A = [0 for i in xrange(n)]
+        n = len(list(D.keys())) + 1
+        A = [0 for i in range(n)]
         s = 0
-        for w,c in D.items():
-            i = T.key_id(unicode(w))
-            try: 
-                A[i] =  c
+        for w, c in list(D.items()):
+            i = T.key_id(str(w))
+            try:
+                A[i] = c
                 s += c
-            except IndexError: 
-                print "IndexError", w
+            except IndexError:
+                print("IndexError", w)
         A[-1] = s
         with open(G_out_files[k] + '.py', 'w') as f:
             f.write('%s = [' % k)
             f.write(',\n'.join(['%d' % x for x in A]))
             f.write(']\n')
-        # root_fl.write("%d,\'%s\t<>\t%s\n" % ( ' '.join(line), '~'.join(((t)))))
-        
+            # root_fl.write("%d,\'%s\t<>\t%s\n" % ( ' '.join(line), '~'.join(((t)))))
+
     # TODO
-    #push_DotStar_IntoGrammar( grammar );
+    # push_DotStar_IntoGrammar( grammar );
     output_file.close()
 
+
 def main():
-    if len(sys.argv)<2 or sys.argv[0] in ['-h', '--help']:
-        print '''Taste the HoneyVault1.1 - a New Password Encrypting paradigm!
+    if len(sys.argv) < 2 or sys.argv[0] in ['-h', '--help']:
+        print('''Taste the HoneyVault1.1 - a New Password Encrypting paradigm!
 This is the PCFG generator script! Are you sure you wanna use this script.
 --build-dawg password_leak_file
 --build-pcfg password_leak_file
 --build-all password_leak_file
-        '''
+        ''')
     else:
-        if sys.argv[1] == '--build-dawg': breakwordsintotokens( sys.argv[2] )
-        elif sys.argv[1] == '--build-pcfg': buildpcfg( sys.argv[2] )
-        elif sys.argv[1] == '--build-all':  
-            breakwordsintotokens( sys.argv[2] )
-            buildpcfg( sys.argv[2] )
-        else: print "Sorry Hornet! Command not recognised."
-        
+        if sys.argv[1] == '--build-dawg':
+            breakwordsintotokens(sys.argv[2])
+        elif sys.argv[1] == '--build-pcfg':
+            buildpcfg(sys.argv[2])
+        elif sys.argv[1] == '--build-all':
+            breakwordsintotokens(sys.argv[2])
+            buildpcfg(sys.argv[2])
+        else:
+            print("Sorry Hornet! Command not recognised.")
 
 
 if __name__ == "__main__":
     main()
-    #G = buildpcfg(sys.argv[1])
-    #print G
-    
-    #T = Scanner()
-    #for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2', 'cutiepie1230', 'password1']:
+    # G = buildpcfg(sys.argv[1])
+    # print G
+
+    # T = Scanner()
+    # for w in ['~~~1234567879!@~abc', 'iloveyou@2013', '121293', 'ihateyou', 'eeyore', 'fuckyou1', 'C0mput3rS3cr3t@1032', 'lovendall', 'fuckyou1', 'derek2', 'cutiepie1230', 'password1']:
     #       print T.tokenize(w, True)
-    #D = MobileN();
-    #print D.parse('ram1992');
+    # D = MobileN();
+    # print D.parse('ram1992');
     # K = KeyBoard();
     # for l in sys.stdin:
     #     #    print l.strip(), '-->', T.tokenize(l.strip(), True)[2];
@@ -203,15 +209,8 @@ if __name__ == "__main__":
     #         p = K.generate_passqord_fromseq(s)
     #         if p != l[0]:
     #             print "ERROR:",  l[0], w, [], p
-    #breakwordsintotokens(sys.argv[1])
+    # breakwordsintotokens(sys.argv[1])
     # buildpcfg(sys.argv[1])
     # G = Grammar()
     # G.load(GRAMMAR_DIR+'grammar.cfg')
     # print G.G
-
-
-
-    
-
-
-

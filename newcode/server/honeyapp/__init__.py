@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append('../')
 
 from flask import Flask
@@ -15,6 +16,7 @@ app.config["MAIL_USERNAME"] = 'rchat@cs.wisc.edu'
 app.config["MAIL_PASSWORD"] = '1233456'
 
 from routes import mail
+
 mail.init_app(app)
 
 import intro_to_flask.routes

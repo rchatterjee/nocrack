@@ -16,3 +16,4 @@ static/token
 token_*
 testRes/
 data_vault/
+.idea/
