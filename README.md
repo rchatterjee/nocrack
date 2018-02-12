@@ -1,4 +1,4 @@
-# NoCrack
+# NoCrack  [![Build Status](https://travis-ci.org/rchatterjee/nocrack.svg?branch=master)](https://travis-ci.org/rchatterjee/nocrack)
 A new generation password manager that __resist offline brute-force attack__. 
 See [my project page](https://www.cs.cornell.edu/~rahul/projects/NoCrack.html) for more details.
 
