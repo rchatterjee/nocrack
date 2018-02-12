@@ -17,3 +17,4 @@ token_*
 testRes/
 data_vault/
 .idea/
+.cache

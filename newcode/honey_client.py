@@ -2,29 +2,28 @@ import binascii
 import json  # , unittest
 import sys
 from Crypto.Hash import SHA256
+import os, sys
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
 
-import urllib.error
-import urllib.error
-import urllib.parse
-import urllib.parse
-import urllib.request
-import urllib.request
-from dte.honey_vault import HoneyVault
-from publicsuffix import PublicSuffixList
+import requests
 from urllib.parse import urlparse
 
-HONEY_SERVER_URL = "http://localhost:5000/"
-VAULT_FILE = 'static/vault.db'
-STATIC_DOMAIN_HASH_LIST = 'static_domain_hashes.txt'
+from dte.honey_vault import HoneyVault
+from publicsuffix import PublicSuffixList
+from honeyvault_config import (HONEY_SERVER_URL, VAULT_FILE,
+                               STATIC_DOMAIN_HASH_LIST)
 
 
 def b2a_base64(x):
-    binascii.b2a_base64(x)[:-1]
+    return binascii.b2a_base64(x)[:-1]
 
 
 def create_request(sub_url, data):
-    return urllib.request.Request(HONEY_SERVER_URL + sub_url,
-                                  urllib.parse.urlencode(data))
+    return requests.post(
+        url=HONEY_SERVER_URL + sub_url,
+        data=data
+    )
 
 
 def get_exact_domain(url):
@@ -57,24 +56,24 @@ $ ./honey_client -register badgeremail@wisc.edu
 """
     if len(args) < 1:
         return h_string
-    username = args[0]
-    req = create_request('register', {'username': username})
-    return urllib.request.urlopen(req).read()
+    username = args[0].encode('utf-8')
+    r = create_request('register', {'username': username})
+    return r.content
 
 
 def verify(*args):
     h_string = """
 verify your email id. token you will get in your email after '-register'
 ./honey_client -verify <email> <token>
-$ ./honey_client -verify badger@honey.com 'ThisIsTheToken007+3lL=' vault.hny
+$ ./honey_client -verify badger@honey.com 'ThisIsTheToken007+3lL='
 """
     if len(args) < 2:
         return h_string
     data = {'username': args[0],
             'email_token': args[1].strip("'")
             }
-    req = create_request('verify', data)
-    return urllib.request.urlopen(req).read()
+    r = create_request('verify', data)
+    return r.content
 
 
 def write(*args):
@@ -87,28 +86,28 @@ $ ./honey_client -write badger@honey.com 'ThisIsTheToken007+3lL='
         return h_string
     data = {'username': args[0],
             'token': args[1].strip("'"),
-            'vault_c': b2a_base64(open(args[2]).read())
+            'vault_c': b2a_base64(open(args[2], 'rb').read())
             }
-    print((data['token']))
-    print((data['vault_c'][:10]))
-    req = create_request('write', data)
-    return urllib.request.urlopen(req).read()
+    # print((data['token']))
+    # print((data['vault_c'][:10]))
+    r = create_request('write', data)
+    return r.content
 
 
 def read(*args):
     h_string = """
 read your vault from the server.
 ./honey_client -read <email> <token>
-$ ./honey_client -v badger@honey.com 'ThisIsTheToken007+3lL='
+$ ./honey_client -read badger@honey.com 'ThisIsTheToken007+3lL='
 """
     if len(args) < 2:
         return h_string
     data = {'username': args[0],
             'token': args[1].strip("'"),
             }
-    req = create_request('read', data)
-    d = urllib.request.urlopen(req).read()
-    if not d.startswith('ERROR'):
+    r = create_request('read', data)
+    d = r.content
+    if not d.startswith(b'ERROR'):
         open(VAULT_FILE, 'wb').write(binascii.a2b_base64(d))
         return "Saved in %s" % VAULT_FILE
     else:
@@ -121,30 +120,30 @@ refresh your token. If you dont have access to the account
 for some reason (adversary has changed the token) reregister yourself.
 It will refresh the token and you will get back your vault.
 ./honey_client -refresh <email> <last-token>
-e.g. ./honey_client -v badger@honey.com 'ThisIsTheToken007+3lL='
+e.g. ./honey_client -refresh badger@honey.com 'ThisIsTheToken007+3lL='
 """
     if len(args) < 2:
         return h_string
     data = {'username': args[0],
             'token': args[1].strip("'"),
             }
-    req = create_request('refresh', data)
-    return urllib.request.urlopen(req).read()
+    r = create_request('refresh', data)
+    return r.content
 
 
 def get_static_domains(*args):
     h_string = """
 get the mapping of domains to index. Advanced level command!
 ./honey_client -getdomainhash <email> <token>
-e.g. ./honey_client -v badger@honey.com 'ThisIsTheToken007+3lL='
+e.g. ./honey_client -getdomainhash badger@honey.com 'ThisIsTheToken007+3lL='
 """
     if len(args) < 2:
         return h_string
     data = {'username': args[0],
             'token': args[1].strip("'"),
             }
-    req = create_request('getdomains', data)
-    return urllib.request.urlopen(req).read()
+    r = create_request('getdomains', data)
+    return r.content
 
 
 def add_pass(*args):
@@ -158,15 +157,18 @@ e.g. ./honey_client -addpass AwesomeS@la google.com 'AmzingP@ss'
     if len(args) < 3:
         return h_string
     mp = args[0]
-    domain_pw_map = {get_exact_domain(k): v
-                     for k, v in zip(args[1::2], args[2::2])}
+    domain_pw_map = dict(
+        (get_exact_domain(k), v)
+        for k, v in zip(args[1::2], args[2::2])
+    )
+
     hv = HoneyVault(VAULT_FILE, mp)
     hv.add_password(domain_pw_map)
-    y = input(""" Check the following sample decoded password and make sure your master
+    print("""Check the following sample decoded password and make sure your master
 password is correct. Otherwise you might accidentally spoile your whole
-vault. CAREFUL.  SAMPLE PASSWORDS:\n---> %s Are all of the correct to the best of
-your knowledge! (y/n)""" % \
-              '\n---> '.join(hv.get_sample_decoding()))
+vault. CAREFUL.  SAMPLE PASSWORDS:\n---> {}\n""".format('\n---> '.join(hv.get_sample_decoding())))
+    y = input("Are all of the above passwords look correct to the best of your knowledge! (y/n)")
+
     if y.lower() == 'y':
         hv.save()
         return """

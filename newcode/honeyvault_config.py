@@ -9,6 +9,7 @@
 # exact dicionary path should be given.
 import math
 import os
+import random
 
 BASE_DIR = os.getcwd()
 DICTIONARY_SOURCE_FILE = "../PasswordDictionary/passwords/combined-withcout.txt.bz2"
@@ -30,7 +31,7 @@ EPSILON = '|_|'
 GRAMMAR_R = 0
 MEMLIMMIT = 1024  # 1024 MB, 1GB
 MIN_COUNT = 10
-DEBUG = True
+DEBUG = False
 PRODUCTION = 1
 NONTERMINAL = 1
 TERMINAL = 1 - NONTERMINAL
@@ -66,3 +67,19 @@ STATIC_DOMAIN_HASH_LIST = '{}/static/static_domain_hashes.txt'.format(thisdir)
 
 # Machie generated password probability in set of 1000
 MACHINE_GENRATED_PASS_PROB = 10
+
+# Required by honey_client
+HONEY_SERVER_URL = "http://localhost:5000/"
+VAULT_FILE = 'static/vault.db'
+
+
+L33T = {
+    '3': 'e', '4': 'a', '@': 'a',
+    '$': 's', '0': 'o', '1': 'i',
+    'z': 's'
+}
+
+if DEBUG:
+    random.seed(123456)
+else:
+    random.seed(os.urandom(4))

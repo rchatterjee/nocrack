@@ -6,12 +6,13 @@ import os
 import re
 import resource  # For checking memory usage
 import sys
-
 import marisa_trie
-from helper import open_
 
+from helper import open_
 from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
-from .lexer.lexer_helper import GrammarStructure
+
+from .lexer_helper import GrammarStructure
+from .grammar import Grammar
 
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]

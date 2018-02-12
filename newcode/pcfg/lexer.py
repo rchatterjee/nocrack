@@ -21,7 +21,7 @@ from dawg import IntDAWG, DAWG
 import bz2, re
 from .lexer_helper import Date, RuleSet, ParseTree
 from helper import open_
-from honeyvault_config import MIN_COUNT
+from honeyvault_config import MIN_COUNT, L33T
 from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
 import resource  # For checking memory usage
 
@@ -97,23 +97,21 @@ class NonT(object):  # baseclass
     def __bool__(self):
         return bool(self.prod) and bool(self.prob)
 
-    __bool__ = __nonzero__
-
 
 class NonT_L(NonT):
     sym, prod, prob = 'L', '', 0.0
 
     def __init__(self, v, w):
         super(NonT_L, self).__init__()
-        self.prod = 'l33t' if not w.isalpha() \
-            else 'Caps' if w.istitle() \
-            else 'lower' if w.islower() \
-            else 'UPPER'
+        self.prod = 'UPPER' if v.upper() == w \
+            else 'lower' if v.lower() == w \
+            else 'Caps' if v.title() == w \
+            else 'l33t'
         self.r = w
         self.l = v
         if self.prod == 'l33t':
-            c = len([c for c, d in zip(self.l, self.r)
-                     if c != d.lower()])
+            c = len([1 for cl, cr in zip(self.l, self.r)
+                     if cl != cr.lower()])
             self.prob = 1 - c / len(self.r)
         else:
             self.prob = 1.0
@@ -148,11 +146,7 @@ class NonT_W(NonT):
               fname_dawg['__total__'] + \
               lname_dawg['__total__']
 
-    l33t_replaces = DAWG.compile_replaces({
-        '3': 'e', '4': 'a', '@': 'a',
-        '$': 's', '0': 'o', '1': 'i',
-        'z': 's'
-    })
+    l33t_replaces = DAWG.compile_replaces(L33T)
 
     def __init__(self, word):
         # super(NonT_W, self).__init__()

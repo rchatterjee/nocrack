@@ -9,6 +9,11 @@ from pcfg import pcfg
 from helper import random, MAX_INT, diff
 import honeyvault_config as hny_config
 from dte.honey_vault import HoneyVault
+import json
+
+# seed = os.urandom(2)
+# print("Random Seed: {!r}".format(seed))
+# random.seed(seed)
 
 VAULT_FILE = 'static/vault.db'
 
@@ -39,7 +44,7 @@ class TestDTE(unittest.TestCase):
         vault_file = VAULT_FILE + '~test'
         mpw = 'Masterpassw0rd' + str(random.randint(0, 100))
         hv = HoneyVault(vault_file, mpw)
-        PW_set = dict((i, hv.dte.decode_pw(pw_encodings)) for i, pw_encodings in \
+        PW_set = dict((i, hv.dte.decode_pw(pw_encodings)) for i, pw_encodings in
                       enumerate(hv.S) if hv.machine_pass_set[i] == '0')
         for i, pw in list(PW_set.items()):
             s = hv.dte.encode_pw(pw)
@@ -53,8 +58,8 @@ class TestDTE(unittest.TestCase):
         for i, pw_encodings in enumerate(hv.S):
             if hv.machine_pass_set[i] == '0' and i not in ignore:
                 npw = hv.dte.decode_pw(pw_encodings)
-                self.assertEqual(PW_set[i], npw, "New passwords changed!!!" \
-                                                 "Expecting: '{}' at {}. Got '{}'".format(PW_set[i], npw))
+                self.assertEqual(PW_set[i], npw,
+                                 "New passwords changed!!! Expecting: {!r} at {}. Got {!r}".format(PW_set[i], i, npw))
 
 
 class TestVaultDistPCFG(unittest.TestCase):
@@ -74,22 +79,25 @@ class TestVaultDistPCFG(unittest.TestCase):
 
 
 class TestPCFG(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(TestPCFG, self).__init__(*args, **kwargs)
+        self.H = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_GRAMMAR_SIZE)
+        self.tr_pcfg = pcfg.TrainedGrammar()
+        self.G = self.tr_pcfg.decode_grammar(self.H)
+
     def test_encode_decode_subgrammar(self):
-        H = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_GRAMMAR_SIZE)
-        tr_pcfg = pcfg.TrainedGrammar()
-        G = tr_pcfg.decode_grammar(H)
+        H, G, tr_pcfg = self.H, self.G, self.tr_pcfg
         for i in range(10):
             Hprime = tr_pcfg.encode_grammar(G)
+            self.assertEqual(len(Hprime), hny_config.HONEY_VAULT_GRAMMAR_SIZE)
             Gprime = tr_pcfg.decode_grammar(Hprime)
             self.assertEqual(Gprime, G, "G and Gprime are not equal.\n" \
-                                        "G: {}\nGprime: {}\Difference: o-n = {}, n-o = {}" \
-                             .format(G.nonterminals(), Gprime.nonterminals(),
-                                     diff(G, Gprime), diff(Gprime, G)))
+                                        "G: {}\nGprime: {}\nDifference: o-n = {}, n-o = {}" \
+                             .format(json.dumps(G.G, indent=4), json.dumps(Gprime.G, indent=4),
+                                     list(diff(G.G, Gprime.G)), list(diff(Gprime.G, G.G))))
 
     def test_encode_decode_rule(self):
-        H = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_GRAMMAR_SIZE)
-        tr_pcfg = pcfg.TrainedGrammar()
-        G = tr_pcfg.decode_grammar(H)
+        H, G, tr_pcfg = self.H, self.G, self.tr_pcfg
 
         for i, pw in enumerate(random.sample(RANDOM_PW_SET, 10)):
             pt = tr_pcfg.l_parse_tree(pw)
@@ -100,13 +108,19 @@ class TestPCFG(unittest.TestCase):
                     .format(t, c, p[1])
 
     def test_encode_decode_pw(self):
-        H = random.randints(0, MAX_INT, hny_config.HONEY_VAULT_GRAMMAR_SIZE)
-        tr_pcfg = pcfg.TrainedGrammar()
-        G = tr_pcfg.decode_grammar(H)
+        H, G, tr_pcfg = self.H, self.G, self.tr_pcfg
         for i, pw in enumerate(random.sample(RANDOM_PW_SET, 30)):
             pwprime = G.decode_pw(G.encode_pw(pw))
             self.assertEqual(pwprime, pw, "Password encode-decode error!\n" \
                                           "EncodedPw={}, DecodedPw={}".format(pw, pwprime))
+
+    def test_encode_decode_pw_trained_grammar(self):
+        H, G, tr_pcfg = self.H, self.G, self.tr_pcfg
+        for i, pw in enumerate(random.sample(RANDOM_PW_SET, 30)):
+            pwprime = tr_pcfg.decode_pw(tr_pcfg.encode_pw(pw))
+            self.assertEqual(pwprime, pw, "Password encode-decode error!\n"
+                                          "EncodedPw={}, DecodedPw={}".format(pw, pwprime))
+
 
 
 class TestHoneyClient(unittest.TestCase):

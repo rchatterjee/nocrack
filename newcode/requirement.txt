@@ -1,0 +1,13 @@
+DAWG
+Flask
+Flask-SQLAlchemy
+argparse
+marisa-trie
+nose
+numpy
+publicsuffix
+pyasn1
+pycrypto
+pyparsing
+python-dateutil
+rsa==3.1.4

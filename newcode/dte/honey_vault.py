@@ -13,7 +13,7 @@ from Crypto.Hash import SHA256
 from Crypto.Protocol.KDF import PBKDF1
 from Crypto.Util import Counter
 import copy, struct
-from helper import (open_, print_err, ProcessParallel, random,
+from helper import (open_, print_err, process_parallel, random,
                     print_production)
 from pcfg.pcfg import VaultDistPCFG
 from collections import OrderedDict
@@ -25,7 +25,7 @@ MAX_INT = hny_config.MAX_INT
 
 
 # -------------------------------------------------------------------------------
-def do_crypto_setup(mp, salt=b'madhubala'):
+def do_crypto_setup(mp, salt):
     key = PBKDF1(mp, salt, 16, 100, SHA256)
     ctr = Counter.new(128, initial_value=int(254))
     aes = AES.new(key, AES.MODE_CTR, counter=ctr)
@@ -37,18 +37,18 @@ def copy_from_old_parallel(args):
     ret = []
     pw = odte.decode_pw(p)
     if not pw:
-        return (i, pw, [])
+        return i, pw, []
     ret = ndte.encode_pw(pw)
     if not ret:
-        print("Cool I failed in encoding!! Kudos to me. pw: {}, i: {}" \
+        print("Cool I failed in encoding!! Kudos to me. pw: {}, i: {}"
               .format(pw, i))
         ret = pw
     else:
         tpw = ndte.decode_pw(ret)
-        assert pw == tpw, "Encoding-Decoding password is wrong. Expecting '{}', got '{}'" \
+        assert pw == tpw, "Encoding-Decoding password is wrong. Expecting {!r}, got {!r}"\
             .format(pw, tpw)
 
-    return (i, pw, ret)
+    return i, pw, ret
 
 
 class HoneyVault:
@@ -71,12 +71,12 @@ class HoneyVault:
 
     def get_domain_index(self, d):
         h = SHA256.new()
-        h.update(d)
+        h.update(d.encode('utf-8'))
         d_hash = h.hexdigest()[:32]
         try:
             i = self.domain_hash_map[d_hash]
             if i > self.s1:
-                raise KeyError;
+                raise KeyError
             else:
                 return i
         except KeyError:
@@ -132,8 +132,8 @@ class HoneyVault:
         nG.update_grammar(*(list(domain_pw_map.values())))
         ndte = DTE(nG)
 
-        # TODO: fix this, currently its a hack to way around my shitty
-        # parsing. A password can be generated in a different way than it is parsed in most probably
+        # TODO: fix this, currently its a hack to way around my bad
+        # parsing. A password can be generated in a different way than it is parsed in most probable
         # way. The code is supposed to pick one parse tree at random. Currently picking the most 
         # probable one. Need to fix for security reason. Will add a ticket. 
         new_encoding_of_old_pw = []
@@ -142,14 +142,17 @@ class HoneyVault:
 
         if self.dte and (ndte != self.dte):
             # if new dte is different then copy the existing human chosen passwords. 
-            # Machine generated passwords are not necessary to reencode. As their grammar
+            # Machine generated passwords are not necessary to re-encode. As their grammar
             # does not change. NEED TO CHECK SECURITY.
             print_production("Some new rules found, so adding them to the new grammar. " \
                              "Should not take too long...\n")
             data = [(self.dte, ndte, i, p)
                     for i, p in enumerate(self.S)
                     if self.machine_pass_set[i] == '0']
-            result = ProcessParallel(copy_from_old_parallel, data, func_load=100)
+            if hny_config.DEBUG:
+                result = map(copy_from_old_parallel, data)
+            else:
+                result = process_parallel(copy_from_old_parallel, data, func_load=100)
 
             for i, pw, pw_encodings in result:
                 if isinstance(pw_encodings, str):
@@ -294,4 +297,4 @@ def main():
 
 if __name__ == "__main__":
     print("TODO: add main/test")
-    main();
+    main()

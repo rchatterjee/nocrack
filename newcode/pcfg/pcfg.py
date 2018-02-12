@@ -16,27 +16,23 @@ import string
 import sys
 
 BASE_DIR = os.getcwd()
-sys.path.append(BASE_DIR)
 from dawg import IntDAWG, DAWG
 import json
 from .lexer_helper import Date, RuleSet, ParseTree
-from helper import (open_, getIndex, convert2group, print_err,
-                    bin_search, print_once, random, whatchar, DEBUG)
-import honeyvault_config as hny_config
-from honeyvault_config import GRAMMAR_DIR
-from collections import OrderedDict
 from .lexer import NonT_L, get_nont_class
+from helper import (
+    open_, getIndex, convert2group, print_err,
+    bin_search, print_once, random, whatchar, DEBUG
+)
+import honeyvault_config as hny_config
+from collections import OrderedDict
 import sys
 
-GRAMMAR_FILE = GRAMMAR_DIR + '/grammar.cfg.bz2'
+GRAMMAR_FILE = hny_config.GRAMMAR_DIR + '/grammar.cfg.bz2'
 
 
 class TrainedGrammar(object):
-    l33t_replaces = DAWG.compile_replaces({
-        '3': 'e', '4': 'a', '@': 'a',
-        '$': 's', '0': 'o', '1': 'i',
-        'z': 's'
-    })
+    l33t_replaces = DAWG.compile_replaces(hny_config.L33T)
 
     def __init__(self, g_file=GRAMMAR_FILE, cal_cdf=False):
         self.cal_cdf = cal_cdf
@@ -67,7 +63,8 @@ class TrainedGrammar(object):
 
     def get_prob(self, l, r):
         f = self.G.get(l, {}).get(r, 0)
-        return max(float(f) / self.G[l]['__total__'], 0.0)
+        tot = self.G.get(l, {}).get('__total__', 1e-3)
+        return max(float(f) / tot, 0.0)
 
     def isNonTerm(self, lhs):  # this means given lhs, rhs will be in NonT
         return lhs in self.NonT_set
@@ -100,7 +97,12 @@ class TrainedGrammar(object):
             k = k[0]
             L = NonT_L(k, word)
             sym = 'W%s' % get_nont_class('W', k)
-            return (sym, [(k, L)], self.get_prob(sym, k))
+            try:
+                p = self.get_prob(sym, k)
+            except KeyError as ex:
+                print(k, sym, ex)
+                raise KeyError(ex)
+            return sym, [(k, L)], p
 
     def get_T_rule(self, word):
         T = self.date.IsDate(word)
@@ -109,7 +111,7 @@ class TrainedGrammar(object):
             for r in T.tree:
                 p *= self.get_prob(*r)
             p *= self.get_prob(*(T.get_rule()))
-            return ('T', [(word, T)], p)
+            return 'T', [(word, T)], p
 
     def get_all_matches(self, word):
         rules = []
@@ -123,7 +125,7 @@ class TrainedGrammar(object):
             else:
                 f = self.G[nt].get(word, 0)
                 if f > 0:
-                    rules.append((nt, [(word)], float(f) / self.G[nt]['__total__']))
+                    rules.append((nt, [word], float(f) / self.G[nt]['__total__']))
         rules = [x for x in rules if x and x[-1]]
         if rules:
             return max(rules, key=lambda x: x[-1])
@@ -168,7 +170,8 @@ class TrainedGrammar(object):
                     # print i, j, word[i: i+j+1]
         return A[(0, len(word) - 1)]
 
-    def default_parse_tree(self, word):
+    @staticmethod
+    def default_parse_tree(word):
         """
         Returns the default parse of a word. Default parse is
         G -> W1,G | D1,G | Y1,G | W1 | D1 | Y1
@@ -193,7 +196,7 @@ class TrainedGrammar(object):
         pt = ParseTree()
         p = self.parse(word)
         if not p:
-            print("Failing at ", word.encode('utf-8'))
+            print("Failing at {!r}".format(word))
             return pt
         # assert p[0] in self.G['G'], "Wrong rule: {} --> {}".format('G', p[0])
         if p[0] not in self.G['G']:
@@ -216,7 +219,7 @@ class TrainedGrammar(object):
                 pt.add_rule((l, rule_name))
                 pt.extend_rules(p)
             else:
-                print("Something is severly wrong")
+                print("Something is severely wrong")
         return pt
 
     def rule_set(self, word):
@@ -243,15 +246,15 @@ class TrainedGrammar(object):
 
     def encode_pw(self, pw):
         pt = self.l_parse_tree(pw)
+        # print("L_parse_tree", pw, pt)
         try:
             code_g = [self.encode_rule(*p)
                       for p in pt]
-        except ValueError:
-            print("Error in encoding: \"{}\"".format(pw))
-            raise ValueError
-            return []
-        extra = hny_config.PASSWORD_LENGTH - len(code_g);
-        code_g.extend([convert2group(0, 1) for x in range(extra)])
+        except ValueError as ex:
+            print("Error in encoding: {!r}".format(pw))
+            raise ValueError(ex)
+        extra = hny_config.PASSWORD_LENGTH - len(code_g)
+        code_g.extend(convert2group(0, 1, extra))
         return code_g
 
     def decode_rule(self, l, p):
@@ -261,8 +264,10 @@ class TrainedGrammar(object):
         assert '__total__' in rhs_dict, "__total__ not in {!r}, l={!r}" \
             .format(rhs_dict, l)
         p %= rhs_dict['__total__']
+
         if self.cal_cdf:
-            if len(rhs_dict) > 1000: print_once(l, len(rhs_dict))
+            if len(rhs_dict) > 1000:
+                print_once(l, len(rhs_dict))
             return bin_search(list(rhs_dict.items()), p, 0, len(rhs_dict))
         for k, v in list(rhs_dict.items()):
             if p < v:
@@ -272,6 +277,7 @@ class TrainedGrammar(object):
         print("Allas could not find.", l, p)
 
     def decode_l33t(self, w, iterp):
+        # print("L33t:::", w, iterp)
         l = self.decode_rule('L', next(iterp))
         if l == 'Caps':
             return w.capitalize()
@@ -290,7 +296,7 @@ class TrainedGrammar(object):
                 .format(hny_config.PASSWORD_LENGTH, len(P))
 
         iterp = iter(P)
-        plaintext = '';
+        plaintext = ''
         stack = ['G']
         while stack:
             lhs = stack.pop()
@@ -310,6 +316,8 @@ class TrainedGrammar(object):
     def encode_grammar(self, G):
         """
         Encodes a sub-grammar @G under the current grammar.
+        Note: Does not record the frequencies.
+        G->[
         """
 
         vd = VaultDistPCFG()
@@ -323,29 +331,39 @@ class TrainedGrammar(object):
             done.append(head)
             rule_dict = G[head]
             t_set = []
-            for rhs, f in list(rule_dict.items()):
+            for rhs in rule_dict.keys():
                 if rhs != '__total__':
                     r = [x for x in self.get_actual_NonTlist(head, rhs) if x not in done + stack]
-                    if r:
-                        for x in r:
-                            if (x not in t_set):
-                                t_set.append(x)
+                    for x in r:
+                        if x not in t_set:
+                            t_set.append(x)
             t_set.reverse()
             stack.extend(t_set)
             n = len(list(rule_dict.keys())) - 1
             code_g.append(vd.encode_vault_size(head, n))
+
             if n < 0:
-                print("Sorry I cannot encode your password ('{}')! \nPlease choose" \
-                      " something different, like password12".format((head, list(rule_dict.keys()))))
+                print("Sorry I cannot encode your password ({!r})! \nPlease choose"
+                      " something different, like password12!! (Just kidding.)".format((head, list(rule_dict.keys()))))
                 exit(0)
-            assert n == vd.decode_vault_size(head, code_g[-1]), "Vault size encoding mismatch. " \
-                                                                "\nhead: \"{}\", code_g: {}, n: {}, decoded_vault_size: {}" \
+            assert n == vd.decode_vault_size(head, code_g[-1]), \
+                "Vault size encoding mismatch.\nhead: {!r}, code_g: {}, n: {}, decoded_vault_size: {}"\
                 .format(head, code_g[-1], n, vd.decode_vault_size(head, code_g[-1]))
             code_g.extend([self.encode_rule(head, r)
-                           for r in list(rule_dict.keys())
+                           for r in rule_dict.keys()
                            if r != '__total__'])
-        extra = hny_config.HONEY_VAULT_GRAMMAR_SIZE - len(code_g);
-        code_g.extend([convert2group(0, 1) for x in range(extra)])
+
+            # i = 0
+            # for r in rule_dict.keys():
+            #     if r == '__total__': continue
+            #     nr = self.decode_rule(head, code_g[-n+i])
+            #     print("Decoding:", code_g[-n+i], head, nr)
+            #     i += 1
+            #     if nr != r:
+            #         print(">>> Mismatch: nr={}, r={}, code_g={}".format(nr, r, code_g[-n+i]))
+
+        extra = hny_config.HONEY_VAULT_GRAMMAR_SIZE - len(code_g)
+        code_g.extend(convert2group(0, 1, extra))
         return code_g
 
     def decode_grammar(self, P):
@@ -356,7 +374,7 @@ class TrainedGrammar(object):
         vd = VaultDistPCFG()
         iterp = iter(P)
         stack = ['G']
-        done = []
+        done = list(g.default_keys())
         while stack:
             head = stack.pop()
             assert head not in done, "@Head ({}) in @done. It should not!".format(head)
@@ -365,15 +383,17 @@ class TrainedGrammar(object):
             # print "RuleSizeDecoding:", head, done
             n = vd.decode_vault_size(head, p)
             t_set = []
-            for x in range(n):
-                rhs = self.decode_rule(head, next(iterp))
-                # print "Decoding:", stack, head, '==>', rhs
+
+            for _ in range(n):
+                p = next(iterp)
+                rhs = self.decode_rule(head, p)
                 if rhs != '__totoal__':
-                    r = [x for x in self.get_actual_NonTlist(head, rhs) if x not in done + stack]
-                    if r:
-                        for x in r:
-                            if (x not in t_set):
-                                t_set.append(x)
+                    r = [y for y in self.get_actual_NonTlist(head, rhs) if y not in done + stack]
+                    for y in r:
+                        if y not in t_set:
+                            t_set.append(y)
+                else:
+                    print(">>>>> __total__ should not be in the encoded grammar. Something is wrong!")
                 g.add_rule(head, rhs)
             t_set.reverse()
             stack.extend(t_set)
@@ -497,7 +517,7 @@ class SubGrammar(TrainedGrammar):
 ################################################################################
 
 MAX_ALLOWED = 20  # per rule
-VAULT_DIST_FILE = GRAMMAR_DIR + 'vault_dist.cfg'
+VAULT_DIST_FILE = hny_config.GRAMMAR_DIR + 'vault_dist.cfg'
 
 
 class VaultDistPCFG:
@@ -509,8 +529,10 @@ class VaultDistPCFG:
         # uniformly distribute these values between 1 and 30
         use_ful = 5
         for k in ['W', 'D', 'Y', 'R', 'T']:
-            self.G[k] = OrderedDict(list(zip((str(x) for x in range(MAX_ALLOWED + 1)[1:]),
-                                             [100] * use_ful + [5] * (MAX_ALLOWED - use_ful))))
+            self.G[k] = OrderedDict(zip(
+                (str(x+1) for x in range(MAX_ALLOWED + 1)),
+                [100] * use_ful + [5] * (MAX_ALLOWED - use_ful))
+            )
 
         for k, v in list(self.G.items()):
             v['__total__'] = sum(v.values())
@@ -522,12 +544,13 @@ class VaultDistPCFG:
         n = str(n)
         try:
             i = list(v.keys()).index(n)
-            x = sum(list(v.values())[:i])
-            y = x + list(v.values())[i]
+            t_v = list(v.values())
+            x = sum(t_v[:i])
+            y = x + t_v[i]
+            return convert2group(random.randint(x, y - 1),
+                                 v['__total__'])
         except ValueError:
             return convert2group(0, v['__total__'])
-        return convert2group(random.randint(x, y - 1),
-                             v['__total__'])
 
     def decode_vault_size(self, lhs, cf):
         assert not lhs.startswith('L')
@@ -556,3 +579,4 @@ if __name__ == '__main__':
         pw = sys.argv[2]
         pt = tg.l_parse_tree(pw)
         print('Parse Tree for {}\n{}\nSize: {}'.format(pw, pt, len(pt)))
+        print('Get_all_matches: ', tg.get_all_matches(pw))

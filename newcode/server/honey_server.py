@@ -11,7 +11,7 @@ from Crypto.Protocol.KDF import PBKDF1
 from Crypto.Util import Counter
 
 from flask import Flask, request
-from flask.ext.sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
@@ -37,13 +37,15 @@ EMAIL_REG = re.compile(r"""
 @(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?
 """, re.MULTILINE)
 
-DEBUG = 1  # set it to 0 in production
+DEBUG = 0  # set it to 0 in production
 
 b2a_base64 = lambda x: binascii.b2a_base64(x)[:-1]
 
 
 def hash_mp(mp):
     h = SHA256.new()
+    if not isinstance(mp, bytes):
+        mp = mp.encode('utf-8')
     h.update(mp)
     return h.hexdigest()[:32]
 
@@ -141,7 +143,7 @@ def ValidateEmail(username, email_token):
     if u and u.email_token == email_token:
         U = User.query.filter_by(username=username).first()
         if U:
-            U.refresh_token();
+            U.refresh_token()
         else:
             U = User(username=username)
 
@@ -204,14 +206,14 @@ def register():
 @app.route('/verify', methods=['POST'])
 def validate_email():
     username = request.form.get('username', '')
-    email_token = request.form.get('email_token', '')
+    email_token = request.form.get('email_token', '').encode('utf-8')
     return ValidateEmail(username, email_token)
 
 
 @app.route('/write', methods=['POST'])
 def write_vault():
     username = request.form.get('username', '')
-    bearer_token = request.form.get('token', '')
+    bearer_token = request.form.get('token', '').encode('utf-8')
     vault_c = request.form.get('vault_c', '')
     return WriteVault(username, bearer_token, vault_c)
 
@@ -219,21 +221,21 @@ def write_vault():
 @app.route('/read', methods=['POST'])
 def read_vault():
     username = request.form.get('username', '')
-    bearer_token = request.form.get('token', '')
+    bearer_token = request.form.get('token', '').encode('utf-8')
     return ReadVault(username, bearer_token)
 
 
 @app.route('/refresh', methods=['POST'])
 def refresh_token():
     username = request.form.get('username', '')
-    bearer_token = request.form.get('token', '')
+    bearer_token = request.form.get('token', '').encode('utf-8')
     return RefreshToken(username, bearer_token)
 
 
 @app.route('/getdomains', methods=['POST'])
 def get_domain_mapping():
     username = request.form.get('username', '')
-    bearer_token = request.form.get('token', '')
+    bearer_token = request.form.get('token', '').encode('utf-8')
     return json.dumps(GetWebsiteMapping(username, bearer_token))
 
 

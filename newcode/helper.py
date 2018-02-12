@@ -5,17 +5,19 @@ import os
 import sys
 
 BASE_DIR = os.getcwd()
-sys.path.append(BASE_DIR)
+
 from honeyvault_config import MAX_INT, DEBUG, PRODUCTION
-from os.path import (expanduser)
+from os.path import expanduser
 import struct
 # opens file checking whether it is bz2 compressed or not.
 import tarfile
+import string
+import random as orig_random
 
-DEBUG = True
 home = expanduser("~")
 pwd = os.path.dirname(os.path.abspath(__file__))
 regex = r'([A-Za-z_]+)|([0-9]+)|(\W+)'
+char_group = string.printable
 
 
 class random:
@@ -24,13 +26,15 @@ class random:
         """
         returns n uniform random numbers from [s, e] (including both ends)
         """
-        assert e >= s, "Wrong range: [{}, {}]".format(s, e)
+        if e == s:
+            return [s]*n
+        assert e > s, "Wrong range: [{}, {}]".format(s, e)
         n = max(1, n)
-        if DEBUG:
+        if not DEBUG:
             arr = [s + a % (e - s) for a in struct.unpack('<%dL' % n, os.urandom(4 * n))]
         else:
-            random.seed(0)
-            arr = [s + a % (e - s) for a in random.random() * n]
+            orig_random.seed(0)
+            arr = [orig_random.randint(s, e) for _ in range(n)]
         return arr
 
     @staticmethod
@@ -65,16 +69,16 @@ class Token:
 
 
 # returns the type of file.
-def file_type(filename, param='r'):
+def file_type(filename, param='rb'):
     magic_dict = {
-        "\x1f\x8b\x08": "gz",
-        "\x42\x5a\x68": "bz2",
-        "\x50\x4b\x03\x04": "zip"
+        b"\x1f\x8b\x08": "gz",
+        b"\x42\x5a\x68": "bz2",
+        b"\x50\x4b\x03\x04": "zip"
     }
     if param.startswith('w'):
         return filename.split('.')[-1]
     max_len = max(len(x) for x in magic_dict)
-    with open(filename, param) as f:
+    with open(filename, 'rb') as f:
         file_start = f.read(max_len)
     for magic, filetype in list(magic_dict.items()):
         if file_start.startswith(magic):
@@ -153,6 +157,9 @@ def bin_search(A, p, s, e):
         return bin_search(A, p, s, mid)
 
 
+def bin_search_bisect(A, p):
+    pass
+
 def mean_sd(arr):
     s = sum(arr)
     s2 = sum((x * x for x in arr))
@@ -166,8 +173,14 @@ def mean_sd(arr):
     return m, sd
 
 
-def convert2group(t, totalC):
-    return t + random.randint(0, (MAX_INT - t) / totalC) * totalC
+def convert2group(t, totalC, n=1):
+    if n==1:
+        return t + random.randint(0, (MAX_INT - t) // totalC) * totalC
+    else:
+        return [
+            t + c * totalC
+            for c in random.randints(0, (MAX_INT-t) // totalC, n=n)
+        ]
 
 
 # assumes last element in the array(A) is the sum of all elements
@@ -191,11 +204,11 @@ def wrap_func(args):
     return D
 
 
-def ProcessParallel(func, data, func_load=10):
+def process_parallel(func, data, func_load=10):
     """
     its a wrapper over multiprocess.Pool
     """
-    m = len(data) / func_load  # 10 is the magic number
+    m = len(data) // func_load  # 10 is the magic number
     # print "Total:", len(data), m
     if m > 10:
         split_data = [(func, data[i * m:(i + 1) * m]) for i in range(10)]
@@ -211,15 +224,16 @@ def ProcessParallel(func, data, func_load=10):
 
 def diff(oldG, newG):
     """
-    returns the difference of the two grammars.
+    returns the difference of the two dicts. oldG-newG
     """
     if not (isinstance(oldG, dict) and isinstance(newG, dict)):
         yield (oldG, newG)
     else:
-        for k in list(oldG.keys()):
+        for k in oldG.keys():
             if k not in newG:
                 yield k
             else:
                 vold, vnew = oldG[k], newG[k]
                 if vold != vnew:
-                    diff(oldG[k], newG[k])
+                    print("Not equal for", k, flush=True)
+                    diff(vold, vnew)

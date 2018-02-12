@@ -5,10 +5,13 @@ This script implements HoneyEncription class for password vauld.
 it needs a PCFG in the following format.
 """
 
-import sys, os, struct, resource
-
+import os, sys, struct, resource
+from pathlib import Path
+p = Path(__name__).resolve()
+parent, root = p.parent, p.parents[1]
 BASE_DIR = os.getcwd()
-sys.path.append(BASE_DIR)
+sys.path.append(str(root))
+
 import string
 import honeyvault_config as hny_config
 from helper import getIndex, convert2group, random
@@ -24,7 +27,7 @@ class DTE(object):
     def __init__(self, grammar=None):
         self.G = grammar
         if not self.G:
-            raise "NowSubgrammar"
+            raise "NoSubgrammar"
             # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
@@ -40,7 +43,7 @@ class DTE(object):
         """
         Decode one rule given a random number pt, and lhs.
         """
-        return self.decode_rule(lhs, pt)
+        return self.G.decode_rule(lhs, pt)
 
     def encode_pw(self, pw):
         """
@@ -143,7 +146,7 @@ class DTE_random(DTE):
         st = ['' for i in range(n)]
         num %= DTE_random.fact_map[n - 1]
         for i in range(n):
-            x = num / DTE_random.fact_map[n - i - 2]
+            x = num // DTE_random.fact_map[n - i - 2]
             num -= x * DTE_random.fact_map[n - i - 2]
             st[i] = sorted_s[x]
             del sorted_s[x]
@@ -161,11 +164,11 @@ class DTE_random(DTE):
                   self.MAX_ALLOWED + len(pw)]
         for i, x in enumerate(must_4):
             code_g.append(DTE_random.get_random_for_this(
-                x[1], must_set[i]))
+                x[1], self.must_set[i]))
         for p in pw_random_order:
             code_g.append(DTE_random.get_random_for_this(
-                p, All))
-        code_g.append(encode2number(pw))
+                p, self.All))
+        code_g.append(self.encode2number(pw))
         extra = hny_config.PASSWORD_LENGTH - len(code_g);
         code_g.extend([convert2group(0, 1) for x in range(extra)])
         return code_g

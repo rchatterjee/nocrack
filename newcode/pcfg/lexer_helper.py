@@ -2,7 +2,11 @@ import json
 import re
 import string
 from collections import OrderedDict, defaultdict
+import os, sys
+BASE_DIR = os.getcwd()
+sys.path.append(BASE_DIR)
 
+from helper import open_
 
 class GrammarStructure:
     g_reg = r'^(?P<lhs>[A-Z]+)\s+->(?P<rhs>.*)$'
@@ -149,8 +153,7 @@ class RuleSet(object):
 
     def add_rule(self, l, r, f=0, rule=None):
         if rule:
-            l = rule[0]
-            r = rule[1]
+            l, r = rule
         self.G[l][r] = self.G[l].get(r, 1) + f
 
     def update_set(self, T, with_freq=False, freq=0):
@@ -431,8 +434,6 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
 
     def __bool__(self):
         return bool(self.date)
-
-    __bool__ = __nonzero__
 
     def __str__(self):
         return str(self.date)
