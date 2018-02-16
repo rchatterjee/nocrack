@@ -28,13 +28,14 @@ Now you shouold have all the required libraries to run `nocrack`.
 
 ## How to run?
 
-Dont forget to activate your virtualvenv
-  ```bash
-  $ source venv/bin/activate
-  (venv) $
-  ```
+**Dont forget to activate your virtualvenv and be in the `nocrac/newcode/` directory.** 
+All code is to be run from that directory.
+```bash
+$ source venv/bin/activate
+(venv) $
+```
 
-  **(I am doing a bulk restructuring of the code. So some part of the usage might be inconcistent!)**
+**(I am doing a bulk restructuring of the code. So some part of the usage might be inconcistent!)** 
 
 The main command interface for nocrack is the `hone_client.py` file. 
 It takes several options, explained one by one below.
@@ -150,15 +151,31 @@ Note, `-import` and `-export` commands are not implemented yet!
   to prefix trie with some performance improvements. The grammer using RockYou password leak is already included. If you want to train
   a grammar (probabilities in the grammar) on different password leak, please run the following command. The paths for the leak files
   are now hard-coded (I know this is a bad design!), so you have to make changes in `honeyvault_config.py` file with the required paths.
-  ```bash
-  $ python buildPCFG.py --build-dawg
-  $ python buildPCFG.py --build-pcfg
-  ```
-  Or
-  ```bash
-  $ python buildPCFG.py --build-all               # Alias over the above commands. Preferable :P. 
-  ```
+
+```bash
+$ python buildPCFG.py --build-dawg
+$ python buildPCFG.py --build-pcfg
+```
+Or
+```bash
+$ python buildPCFG.py --build-all               # Alias over the above commands. Preferable :P. 
+```
   This will take a while depending on the size of the password leak file. 
+
+## Breaking password into chunks.
+You can use the `pcfg/pcfg.py` to break passwords into chunks. 
+```bash
+[nocrack/newcode] $ python -m pcfg.pcfg -ptree "Password@123"
+Parse Tree for Password@23
+[('G', 'W7,W1,D2'), ('W7', 'password'), ('L', 'Caps'), ('W1', 'a'), ('L', 'l33t'), ('L_a', '@'), ('D2', '23')]
+Size: 7
+```
+
+You can also look at (zxcvbn-python)[https://github.com/dwolfhub/zxcvbn-python]
+for a simpler parsing into chunks. They don't have an public API, so you have to
+dig the code little bit. 
+
+
 
 
 

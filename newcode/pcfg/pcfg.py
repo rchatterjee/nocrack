@@ -564,8 +564,38 @@ class VaultDistPCFG:
         return i + 1
 
 
+USAGE = """What do you want to do? 
+-encode <pw> to encode a password into honeyencrypted form.
+-vault <pw1> <pw2>... to encode a set of passwords as a vault.
+-parse <pw> parase a password. (not vey useful)
+-ptree <pw> Give the parse tree of a password. (Break a password into chunks.)
+
+
+$ python -ptree Password12
+Parse Tree for Password12
+[('G', 'W7,D2'), ('W7', 'password'), ('L', 'Caps'), ('D2', '12')]
+
+This means 
+G -> W7D2, 
+W7 -> 'password'L, L-> Caps (apply capitalization)
+D2 -> '12'
+
+
+G is the root of the grammar, 
+W7 is a non-terminal depicting words of length 6-8(i guess?), 
+L is a non-terminal denoting an action such as Capitalization, upper-case, apply some leet? etc.
+D2 is another non-terminal denoting 2-digits. 
+
+(There might be some weird corner cases, when it cannot find all the possible chunks and fall
+back to default each character splits.)
+
+"""
+
 if __name__ == '__main__':
     tg = TrainedGrammar()
+    if len(sys.argv)<2:
+        print(USAGE)
+        sys.exit(0)
     if sys.argv[1] == '-encode':
         code_g = tg.encode_pw(sys.argv[2])
         print(code_g)
@@ -579,4 +609,7 @@ if __name__ == '__main__':
         pw = sys.argv[2]
         pt = tg.l_parse_tree(pw)
         print('Parse Tree for {}\n{}\nSize: {}'.format(pw, pt, len(pt)))
-        print('Get_all_matches: ', tg.get_all_matches(pw))
+        # print('Get_all_matches: ', tg.get_all_matches(pw))
+    else:
+        print("No matches found in your action: {!r}".format(sys.argv[1]))
+        print(USAGE)
