@@ -1,5 +1,8 @@
-## Code structure. 
+## New code for NoCrack [![Build Status](https://travis-ci.org/rchatterjee/nocrack.svg?branch=master)](https://travis-ci.org/rchatterjee/nocrack)
 
+
+## Code structure. 
+Coming soon.
 
 ## Dependencies  
     Upgraded the project to Python 3.4.x. You can install it using
@@ -171,7 +174,7 @@ Parse Tree for Password@23
 Size: 7
 ```
 
-You can also look at (zxcvbn-python)[https://github.com/dwolfhub/zxcvbn-python]
+You can also look at [zxcvbn-python](https://github.com/dwolfhub/zxcvbn-python)
 for a simpler parsing into chunks. They don't have an public API, so you have to
 dig the code little bit. 
 
