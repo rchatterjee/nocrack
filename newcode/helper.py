@@ -3,16 +3,15 @@
 import bz2
 import os
 import sys
-
-BASE_DIR = os.getcwd()
-
-from honeyvault_config import MAX_INT, DEBUG, PRODUCTION
+from dawg import DAWG
 from os.path import expanduser
 import struct
 # opens file checking whether it is bz2 compressed or not.
-import tarfile
+import gzip
 import string
 import random as orig_random
+BASE_DIR = os.getcwd()
+from honeyvault_config import MAX_INT, DEBUG, PRODUCTION
 
 home = expanduser("~")
 pwd = os.path.dirname(os.path.abspath(__file__))
@@ -86,38 +85,37 @@ def file_type(filename, param='rb'):
     return "no match"
 
 
+def load_dawg(f):
+    T = DAWG()
+    T.read(open_(f))
+    return T
+
+
+def save_dawg(T, fname):
+    if not fname.endswith('gz'):
+        fname = fname + '.gz'
+    with gzip.open(fname, 'w') as f:
+        T.write(f)
+
+
 def open_(filename, mode='r'):
     type_ = file_type(filename, mode)
     if type_ == "bz2":
-        f = bz2.BZ2File(filename, mode)
+        f = bz2.open(filename, mode)
     elif type_ == "gz":
-        f = tarfile.open(filename, mode)
+        f = gzip.open(filename, mode)
     else:
         f = open(filename, mode);
-    return f;
-
-
-def get_line(file_object, lim=-1):
-    for i, l in enumerate(file_object):
-        if lim > 0 and lim < i:
-            break
-        try:
-            l.decode('ascii')
-            words = l.strip().split()
-            c, w = int(words[0]), ' '.join(words[1:])
-            if w and c > 0:
-                yield w, c
-        except:
-            continue
+    return f
 
 
 def print_err(*args):
-    if DEBUG == True:
+    if DEBUG:
         sys.stderr.write(' '.join([str(a) for a in args]) + '\n')
 
 
 def print_production(*args):
-    if PRODUCTION == True:
+    if PRODUCTION:
         sys.stderr.write(' '.join([str(a) for a in args]) + '\n')
 
 

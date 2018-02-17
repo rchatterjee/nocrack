@@ -10,9 +10,10 @@ import marisa_trie
 
 from helper import open_
 from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
-
+# from .scanner import Scanner
 from .lexer_helper import GrammarStructure
 from .grammar import Grammar
+import gzip
 
 #
 # ['S']  -> [('S2,S',1,20), ('L4,S',1,34),...]
@@ -43,13 +44,13 @@ ManglingRule: M
 def buildpcfg(passwd_dictionary):
     G = Grammar()
     # resource track
-    resource_tracker = 5240
-    allowed_sym = re.compile(r'[ \-_]')
-    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg'
-    for n, line in enumerate(open_(passwd_dictionary)):
+    resource_tracker = 5240 # Number of lines
+    # allowed_sym = re.compile(r'[ \-_]')
+    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg.gzip'
+    for n, line in enumerate(open_(passwd_dictionary, 'rt')):
         if n > resource_tracker:
             r = MEMLIMMIT * 1024 - \
-                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
             if r < 0:
                 print('''
@@ -57,8 +58,8 @@ Hitting the memory limit of 1GB,
 please increase the limit or use smaller data set.
 Lines processed, {0:d}
 '''.format(n))
-                break;
-            resource_tracker += r / 10 + 100;
+                break
+            resource_tracker += r / 10 + 100
         # if n%1000==0: print n;
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
@@ -66,10 +67,10 @@ Lines processed, {0:d}
         else:
             continue
             w, c = ' '.join(line), 1
-        try:
-            w.decode('ascii')
-        except UnicodeDecodeError:
-            continue  # not ascii hence return
+        # try:
+        #     w.decode('ascii')
+        # except UnicodeDecodeError:
+        #     continue  # not ascii hence return
         if c < MIN_COUNT:  # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
             print("Word frequency dropped to %d for %s" % (c, w), n)
             break  # Careful!!!
@@ -80,7 +81,7 @@ Lines processed, {0:d}
     # TODO
     # push_DotStar_IntoGrammar( grammar );
     G.update_total_freq()
-    G.save(bz2.BZ2File(out_grammar_fl, 'w'))
+    G.save(gzip.open(out_grammar_fl, 'wt'))
     # marisa_trie.Trie(Grammar.inversemap.keys()).save(out_trie_fl)
     return G
 
@@ -110,7 +111,8 @@ def breakwordsintotokens(passwd_dictionary):
     resource_tracker = 5240
     for n, line in enumerate(open_(passwd_dictionary)):
         if n > resource_tracker:
-            r = MEMLIMMIT * 1024 - resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
+            r = MEMLIMMIT * 1024 - \
+                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
             print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
             if r < 0:
                 print("""
@@ -189,7 +191,7 @@ This is the PCFG generator script! Are you sure you wanna use this script.
         elif sys.argv[1] == '--build-pcfg':
             buildpcfg(sys.argv[2])
         elif sys.argv[1] == '--build-all':
-            breakwordsintotokens(sys.argv[2])
+            # breakwordsintotokens(sys.argv[2])
             buildpcfg(sys.argv[2])
         else:
             print("Sorry Hornet! Command not recognised.")

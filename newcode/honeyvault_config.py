@@ -17,8 +17,8 @@ PASSWORD_LEAK = "../PasswordDictionary/passwords/rockyou-withcount.txt.bz2"
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 # DIC_TRIE_FILE = 'data/english.tri'
-DICTIONARY_DAWG = '{}/Dictionary_Store/dictionary1.1.dawg'.format(thisdir)
-STANDARD_DIC_FILE = "{}/Dictionary_Store/standard_english.tri".format(thisdir)
+DICTIONARY_DAWG = '{}/Dictionary_Store/dictionary1.1.dawg.gz'.format(thisdir)
+STANDARD_DIC_FILE = "{}/Dictionary_Store/standard_english.tri.gz".format(thisdir)
 
 GRAMMAR_OUTPUT_FILE = "{}/data/combined.gmr.bz2".format(thisdir)
 GRAMMAR_INPUT_FILE = "{}/data/combined.tri.bz2".format(thisdir)
@@ -30,7 +30,10 @@ GRAMMAR_DIR = '{}/Grammar/'.format(thisdir)
 EPSILON = '|_|'
 GRAMMAR_R = 0
 MEMLIMMIT = 1024  # 1024 MB, 1GB
-MIN_COUNT = 10
+MIN_COUNT = 100
+
+
+
 DEBUG = False
 PRODUCTION = 1
 NONTERMINAL = 1

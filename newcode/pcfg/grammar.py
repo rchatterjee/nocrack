@@ -1,17 +1,17 @@
 #!/usr/bin/python
 import os
 import sys
+import marisa_trie
+import json
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-import marisa_trie
-import json
 from helper import open_, getIndex
 import honeyvault_config as hny_config
 from honeyvault_config import NONTERMINAL, TERMINAL, MIN_COUNT
-from scanner_helper import GrammarStructure
+from .lexer_helper import GrammarStructure
 from collections import OrderedDict, defaultdict
-
+from .scanner import Scanner
 
 # -----------------------NOT USED! --------------------------------------------------
 class Grammar(object):
@@ -108,7 +108,7 @@ class Grammar(object):
                     self.addRule_lite(c, d, freq, TERMINAL)
 
     def save(self, out_file):
-        json.dump(self.G, out_file)
+        json.dump(self.G, out_file, indent=2, sort_keys=True)
 
     def load(self, in_file):
         self.G = json.load(open_(in_file),
