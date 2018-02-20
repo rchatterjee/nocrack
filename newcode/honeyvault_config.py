@@ -11,6 +11,9 @@ import math
 import os
 import random
 
+
+DEBUG = os.environ.get("DEBUG", False)
+
 BASE_DIR = os.getcwd()
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,7 +26,9 @@ thisdir = os.path.dirname(os.path.abspath(__file__))
 # HANDGRAMMAR_FILE = "{}/data/grammar.txt".format(thisdir)
 
 STATIC_DIR = os.path.join(thisdir, 'static')
-TRAINED_GRAMMAR_FILE = os.path.join(STATIC_DIR, 'grammar.cfg.gzip')
+TRAINED_GRAMMAR_FILE = os.path.join(STATIC_DIR, 'grammar.cfg.gz')
+if DEBUG:
+    TRAINED_GRAMMAR_FILE += '~orig'
 VAULT_DIST_FILE = os.path.join(STATIC_DIR, 'vault_dist.cfg')
 
 
@@ -31,11 +36,10 @@ VAULT_DIST_FILE = os.path.join(STATIC_DIR, 'vault_dist.cfg')
 EPSILON = '|_|'
 GRAMMAR_R = 0
 MEMLIMMIT = 1024  # 1024 MB, 1GB
-MIN_COUNT = 100
+MIN_COUNT = 2
 
 
 
-DEBUG = False
 PRODUCTION = 1
 NONTERMINAL = 1
 TERMINAL = 1 - NONTERMINAL

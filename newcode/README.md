@@ -29,6 +29,32 @@ $ pip install -r requirement.txt
 
 Now you shouold have all the required libraries to run `nocrack`.
 
+## Building the PCFG (for new password leak)  
+The gramar (`static/gramar.cfg.gzip`) can be rebuilt using any password leak data (password, frequency info).
+Password leak files can be found [here](https://wiki.skullsecurity.org/Passwords). 
+```bash
+$ python buildPCFG.py --buildG rockyou-withcount.txt.bz2 --parallel
+```
+
+This will take a while depending on the size of the password leak file.
+See `python buildPCFG.py --help` for more info. It will replace the grammar file in `static/grammar.cfg.gzip`. 
+
+
+<!-- ## Building the PCFG for new password leak -->
+<!--   For fast access of all the passwords, in the grammar, I used directed acyclic word graph (DAWG) datastructure. This is similar -->
+<!--   to prefix trie with some performance improvements. The grammer using RockYou password leak is already included. If you want to train -->
+<!--   a grammar (probabilities in the grammar) on different password leak, please run the following command. The paths for the leak files -->
+<!--   are now hard-coded (I know this is a bad design!), so you have to make changes in `honeyvault_config.py` file with the required paths. -->
+
+<!-- ```bash -->
+<!-- $ python buildPCFG.py --build-dawg -->
+<!-- $ python buildPCFG.py --build-pcfg -->
+<!-- ``` -->
+<!-- Or -->
+<!-- ```bash -->
+<!-- $ python buildPCFG.py --build-all               # Alias over the above commands. Preferable :P.  -->
+<!-- ``` -->
+
 ## How to run?
 
 **Dont forget to activate your virtualvenv and be in the `nocrac/newcode/` directory.** 
@@ -148,22 +174,6 @@ e.g. (venv) $ server/honey_client.py -addpass AwesomeS@la google.com 'FckingAwes
 Note, `-import` and `-export` commands are not implemented yet!
 
 
-
-## Building the PCFG for new password leak
-  For fast access of all the passwords, in the grammar, I used directed acyclic word graph (DAWG) datastructure. This is similar
-  to prefix trie with some performance improvements. The grammer using RockYou password leak is already included. If you want to train
-  a grammar (probabilities in the grammar) on different password leak, please run the following command. The paths for the leak files
-  are now hard-coded (I know this is a bad design!), so you have to make changes in `honeyvault_config.py` file with the required paths.
-
-```bash
-$ python buildPCFG.py --build-dawg
-$ python buildPCFG.py --build-pcfg
-```
-Or
-```bash
-$ python buildPCFG.py --build-all               # Alias over the above commands. Preferable :P. 
-```
-  This will take a while depending on the size of the password leak file. 
 
 ## Breaking password into chunks.
 You can use the `pcfg/pcfg.py` to break passwords into chunks. 

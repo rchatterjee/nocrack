@@ -11,11 +11,7 @@ import honeyvault_config as hny_config
 from dte.honey_vault import HoneyVault
 import json
 
-# seed = os.urandom(2)
-# print("Random Seed: {!r}".format(seed))
-# random.seed(seed)
-
-VAULT_FILE = 'static/vault.db'
+hny_config.DEBUG = 1
 
 RANDOM_PW_SET = ["bhabyko", "barkley", "baltazar", "augusta",
                  "asuncion", "april7", "adam12", "Thomas", "686868", "575757",
@@ -34,14 +30,15 @@ class TestDteRandom(unittest.TestCase):
         for i in range(100):
             pw, N = r_dte.generate_and_encode_password()
             pw_prime = r_dte.decode_pw(N)
-            self.assertEqual(pw, pw_prime, "Password mismatch in decoding" \
-                                           "for ({}) pw: {}, N: {}, pw': {}".format(i, sorted(pw), N[:5],
-                                                                                    sorted(pw_prime)))
+            self.assertEqual(pw, pw_prime,
+                             "Password mismatch in decoding"
+                             "for ({}) pw: {}, N: {}, pw': {}"
+                             .format(i, sorted(pw), N[:5], sorted(pw_prime)))
 
 
 class TestDTE(unittest.TestCase):
     def test_DTE(self):
-        vault_file = VAULT_FILE + '~test'
+        vault_file = hny_config.VAULT_FILE + '~test'
         mpw = 'Masterpassw0rd' + str(random.randint(0, 100))
         hv = HoneyVault(vault_file, mpw)
         PW_set = dict((i, hv.dte.decode_pw(pw_encodings)) for i, pw_encodings in
@@ -107,7 +104,7 @@ class TestPCFG(unittest.TestCase):
                 assert p[1] == c, "Decoding {} we got {}. Expecting {}" \
                     .format(t, c, p[1])
 
-    def test_encode_decode_pw(self):
+    def test_encode_decode_pw_subgrammar(self):
         H, G, tr_pcfg = self.H, self.G, self.tr_pcfg
         for i, pw in enumerate(random.sample(RANDOM_PW_SET, 30)):
             pwprime = G.decode_pw(G.encode_pw(pw))
@@ -129,7 +126,7 @@ class TestHoneyClient(unittest.TestCase):
         function.
 
         """
-        vault_file = VAULT_FILE + "~test"
+        vault_file = hny_config.VAULT_FILE + "~test"
         try:
             os.remove(vault_file)
         except OSError:

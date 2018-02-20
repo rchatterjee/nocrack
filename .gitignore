@@ -18,3 +18,4 @@ testRes/
 data_vault/
 .idea/
 .cache
+vault.db~test

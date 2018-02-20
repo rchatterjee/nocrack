@@ -15,7 +15,8 @@ from flask_sqlalchemy import SQLAlchemy
 
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-from honeyvault_config import (SECURITY_PARAM, SECURITY_PARAM_IN_BASE64, STATIC_DOMAIN_LIST,
+from honeyvault_config import (SECURITY_PARAM, SECURITY_PARAM_IN_BASE64, 
+                               STATIC_DOMAIN_LIST, DEBUG,
                                HONEY_VAULT_TOTAL_CIPHER_SIZE)
 
 try:
@@ -37,7 +38,6 @@ EMAIL_REG = re.compile(r"""
 @(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?
 """, re.MULTILINE)
 
-DEBUG = 0  # set it to 0 in production
 
 b2a_base64 = lambda x: binascii.b2a_base64(x)[:-1]
 
