@@ -2,7 +2,6 @@
 *.bz2
 \#*\#
 *.pyc
-*.gz
 data/
 honeyvenv/
 password_leak_store/
