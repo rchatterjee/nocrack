@@ -12,7 +12,7 @@ from helper import open_
 from honeyvault_config import GRAMMAR_DIR, MIN_COUNT, MEMLIMMIT
 # from .scanner import Scanner
 from .lexer_helper import GrammarStructure
-from .grammar import Grammar
+from .scanner import Grammar, Scanner
 import gzip
 
 #
@@ -26,8 +26,8 @@ import gzip
 #         \  /
 #          \/
 #
-# After the preprocessing is done this grammar is to converted,s.t.
-# Every rule, will contain the the CDF instead of probability
+# After the preprocessing is done this grammar is to converted into a form where
+# every rule will contain the the CDF instead of probability
 #
 
 '''
@@ -40,27 +40,31 @@ ManglingRule: M
 
 ###################### --NEW VERSION-- ###################################
 
+def memusage_toomuch(n):
+    mem_used =         resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
+    r = MEMLIMMIT * 1024 - mem_used
+    print("Memory Usage: {} MB, Lineno: {}".format(mem_used, n))
+    if r < 0:
+        print("Hitting the memory limit of 1 GB. \nPlease increase the"
+              "limit or use smaller data set.  Lines processed, {0:d}"
+              .format(n))
+        return -1
+    return r
+
 
 def buildpcfg(passwd_dictionary):
     G = Grammar()
     # resource track
-    resource_tracker = 5240 # Number of lines
+    resource_tracker = 5240   # Number of lines
     # allowed_sym = re.compile(r'[ \-_]')
     out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg.gzip'
     for n, line in enumerate(open_(passwd_dictionary, 'rt')):
         if n > resource_tracker:
-            r = MEMLIMMIT * 1024 - \
-                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
+            r = memusage_toomuch(n)
             if r < 0:
-                print('''
-Hitting the memory limit of 1GB,
-please increase the limit or use smaller data set.
-Lines processed, {0:d}
-'''.format(n))
                 break
             resource_tracker += r / 10 + 100
-        # if n%1000==0: print n;
+
         line = line.strip().split()
         if len(line) > 1 and line[0].isdigit():
             w, c = ' '.join(line[1:]), int(line[0])
@@ -100,26 +104,21 @@ def breakwordsintotokens(passwd_dictionary):
     Arr = {}
     for k in list(G_out_files.keys()):
         Arr[k] = dict()
-    out_file_name = 'data/' + os.path.basename(passwd_dictionary).split('.')[0] + '_out.tar.gz'
+    out_file_name = 'data/' +\
+                    os.path.basename(passwd_dictionary).split('.')[0] +\
+                    '_out.tar.gz'
     print(passwd_dictionary, out_file_name)
-    output_file = open(out_file_name, 'wb')
+    output_file = gzip.open(out_file_name, 'wt')
     csv_writer = csv.writer(output_file, delimiter=',',
                             quotechar='"')
     T = Scanner()
     # G = Grammar(scanner=T)
     # resource track
     resource_tracker = 5240
-    for n, line in enumerate(open_(passwd_dictionary)):
+    for n, line in enumerate(open_(passwd_dictionary, 'rt')):
         if n > resource_tracker:
-            r = MEMLIMMIT * 1024 - \
-                resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-            print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
+            r = memusage_toomuch(n)
             if r < 0:
-                print("""
-Hitting the memory limit of 1GB,
-please increase the limit or use smaller data set.
-Lines processed, %d
-""" % n)
                 break
             resource_tracker += r / 10 + 100
         # if n%1000==0: print n;
@@ -129,10 +128,10 @@ Lines processed, %d
         else:
             continue
             w, c = ' '.join(line), 1
-        try:
-            w.decode('ascii')
-        except UnicodeDecodeError:
-            continue  # not ascii hence return
+        # try:
+        #     w.decode('ascii')
+        # except UnicodeDecodeError:
+        #     continue  # not ascii hence return
         if c < MIN_COUNT:
             break
         # P is the patterns, W is the unmangled words, U is the original
@@ -191,7 +190,7 @@ This is the PCFG generator script! Are you sure you wanna use this script.
         elif sys.argv[1] == '--build-pcfg':
             buildpcfg(sys.argv[2])
         elif sys.argv[1] == '--build-all':
-            # breakwordsintotokens(sys.argv[2])
+            breakwordsintotokens(sys.argv[2])
             buildpcfg(sys.argv[2])
         else:
             print("Sorry Hornet! Command not recognised.")

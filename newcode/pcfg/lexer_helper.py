@@ -5,7 +5,6 @@ from collections import OrderedDict, defaultdict
 import os, sys
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
-
 from helper import open_
 
 class GrammarStructure:
@@ -232,7 +231,8 @@ class Tweaker:
 
 
 class KeyBoard:
-    offset = 50;  # to handle negetive!!!!
+    """TODO: Add doc"""
+    offset = 50  # to handle negetive!!!!
     layout_matrix = [
         "1234567890-=",
         "!@#$%^&*()_+",
@@ -260,12 +260,15 @@ class KeyBoard:
         return (dy, dx)
 
     def encode_keyseq(self, seq):
+        """ """
         if not seq[1]: seq[1] = (0, 0)
         a = (seq[1][0] << 24) | (seq[1][1] << 16) | (seq[2] << 8) | seq[3]
         return a
 
     def decode_keyseq(self, a):
-        return [((0xff000000 & a) >> 24, (0xff0000 & a) >> 16), (0xff00 & a) >> 8, 0xff & a]
+        """Returns [(x,y), z, w]. TODO: What are they"""
+        return [((0xff000000 & a) >> 24, (0xff0000 & a) >> 16),
+                (0xff00 & a) >> 8, 0xff & a]
 
     def generate_passqord_fromseq(self, seq):
         p = ''

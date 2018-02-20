@@ -192,8 +192,13 @@ class HoneyVault:
                     tpwold = current_passwords[i]
                     assert len(tpwold) <= 0 or tpw == tpwold, \
                         "The re-encoding is faulty. Expecting: '{}' at {}. Got '{}'.".format(tpwold, i, tpw)
-
-        self.H = self.pcfg.encode_grammar(nG)
+        try:
+            self.H = self.pcfg.encode_grammar(nG)
+        except ValueError as ex:
+            print(ex)
+            print("Sorry the grammar is not complete enough to encode your "
+                  "passwords. This error will be fixed in future.")
+            exit(-1)
         self.dte = ndte
 
     def get_password(self, domain_list, send_raw=False):

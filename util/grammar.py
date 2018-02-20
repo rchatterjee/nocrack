@@ -13,7 +13,8 @@ from .lexer_helper import GrammarStructure
 from collections import OrderedDict, defaultdict
 from .scanner import Scanner
 
-# -----------------------NOT USED! --------------------------------------------------
+
+# ----------------------- USED in buildPCFG only ---------------------------------
 class Grammar(object):
     def __init__(self, config_fl=None, scanner=None, Empty=False):
         self.scanner = scanner if scanner else Scanner()
@@ -54,6 +55,7 @@ class Grammar(object):
         try:
             i = list(rhs_dict.keys()).index(rhs)
             l = 0;
+
             l += sum([rhs_dict[x][0]
                       for x in list(rhs_dict.keys())[:i]])
             r = l + rhs_dict[rhs][0]
@@ -148,58 +150,58 @@ class Grammar(object):
         print(pos)
 
 
-class TrainedGrammar(Grammar):
-    def __init__(self):
-        super(TrainedGrammar, self).__init__()
-        self.term_files = {}
-        self.g_struc = GrammarStructure()
-        for k, f in list(self.g_struc.getTermFiles().items()):
-            sys.path.append(hny_config.GRAMMAR_DIR)
-            X = __import__('%s' % f)
-            self.term_files[k] = {
-                'trie': marisa_trie.Trie().load(hny_config.GRAMMAR_DIR + f + '.tri'),
-                'arr': eval("X.%s" % k),
-                'trie_fl': hny_config.GRAMMAR_DIR + f + '.tri'
-            }
+# class TrainedGrammar(Grammar):
+#     def __init__(self):
+#         super(TrainedGrammar, self).__init__()
+#         self.term_files = {}
+#         self.g_struc = GrammarStructure()
+#         for k, f in list(self.g_struc.getTermFiles().items()):
+#             sys.path.append(hny_config.GRAMMAR_DIR)
+#             X = __import__('%s' % f)
+#             self.term_files[k] = {
+#                 'trie': marisa_trie.Trie().load(hny_config.GRAMMAR_DIR + f + '.tri'),
+#                 'arr': eval("X.%s" % k),
+#                 'trie_fl': hny_config.GRAMMAR_DIR + f + '.tri'
+#             }
 
-    def __getitem__(self, key):
-        if key in self.term_files:
-            return self.term_files[key]['arr']
-        return self.G[key]
+#     def __getitem__(self, key):
+#         if key in self.term_files:
+#             return self.term_files[key]['arr']
+#         return self.G[key]
 
-    def total_freq(self, key):
-        if key in self.term_files:
-            return self.term_files[key]['arr'][-1]
-        return super(TrainedGrammar, self).total_freq(key)
+#     def total_freq(self, key):
+#         if key in self.term_files:
+#             return self.term_files[key]['arr'][-1]
+#         return super(TrainedGrammar, self).total_freq(key)
 
-    def get_rhs(self, lhs, pt):
-        if lhs in self.term_files:
-            w, f = self.freq2key(pt, self.term_files[lhs]['trie'],
-                                 self.term_files[lhs]['arr'])
-            return w, f, TERMINAL
-        return super(TrainedGrammar, self).get_rhs(lhs, pt)
+#     def get_rhs(self, lhs, pt):
+#         if lhs in self.term_files:
+#             w, f = self.freq2key(pt, self.term_files[lhs]['trie'],
+#                                  self.term_files[lhs]['arr'])
+#             return w, f, TERMINAL
+#         return super(TrainedGrammar, self).get_rhs(lhs, pt)
 
-    @staticmethod
-    def key2freq(w, T, A):
-        try:
-            i = T.key_id(str(w))
-            if i < 0:
-                print("Could not find {w} in the trie." \
-                      .format(**locals()))
-                raise KeyError
-            S = sum(A[:i])
-            return S, S + A[i]
-        except KeyError:
-            return 0.0, 0.0
+#     @staticmethod
+#     def key2freq(w, T, A):
+#         try:
+#             i = T.key_id(str(w))
+#             if i < 0:
+#                 print("Could not find {w} in the trie." \
+#                       .format(**locals()))
+#                 raise KeyError
+#             S = sum(A[:i])
+#             return S, S + A[i]
+#         except KeyError:
+#             return 0.0, 0.0
 
-    @staticmethod
-    def freq2key(f, T, A):
-        i = getIndex(f, A)
-        w = T.restore_key(i)
-        return w, A[i]
+#     @staticmethod
+#     def freq2key(f, T, A):
+#         i = getIndex(f, A)
+#         w = T.restore_key(i)
+#         return w, A[i]
 
-    def get_freq_range(self, lhs, rhs):
-        if lhs in self.term_files:
-            return TrainedGrammar.key2freq(rhs, self.term_files[lhs]['trie'],
-                                           self.term_files[lhs]['arr'])
-        return super(TrainedGrammar, self).get_freq_range(lhs, rhs)
+#     def get_freq_range(self, lhs, rhs):
+#         if lhs in self.term_files:
+#             return TrainedGrammar.key2freq(rhs, self.term_files[lhs]['trie'],
+#                                            self.term_files[lhs]['arr'])
+#         return super(TrainedGrammar, self).get_freq_range(lhs, rhs)

@@ -14,7 +14,7 @@ sys.path.append(str(root))
 
 import string
 import honeyvault_config as hny_config
-from helper import getIndex, convert2group, random
+from helper import getIndex, convert2group, random, whatchar
 
 MAX_INT = hny_config.MAX_INT
 
@@ -28,7 +28,6 @@ class DTE(object):
         self.G = grammar
         if not self.G:
             raise "NoSubgrammar"
-            # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
 
     def encode(self, lhs, rhs):
         """
@@ -174,8 +173,10 @@ class DTE_random(DTE):
         return code_g
 
     def decode_pw(self, N):
-        assert len(N) == hny_config.PASSWORD_LENGTH, "Encoding length mismatch! Expecting" \
-                                                     "{}, got {}".format(hny_config.PASSWORD_LENGTH, len(N))
+        assert len(N) == hny_config.PASSWORD_LENGTH, \
+            "Encoding length mismatch! Expecting"\
+            "{}, got {}".format(hny_config.PASSWORD_LENGTH, len(N))
+
         n = self.MIN_PW_LENGTH + N[0] % (self.MAX_ALLOWED - self.MIN_PW_LENGTH)
         N = N[1:n + 2]
         P = [s[N[i] % len(s)] for i, s in enumerate(self.must_set)]
@@ -199,33 +200,6 @@ class DTE_random(DTE):
         n = random.randint(0, MAX_INT)
         password = self.decode2string(n, P)
         return password
-
-
-# class DTE_large(DTE):
-#     """
-#     encodes a rule
-#     """
-#     def __init__(self, grammar=None, cal_cdf=False):
-#         self.G = grammar
-#         if not self.G:
-#             self.G = TrainedGrammar(cal_cdf=cal_cdf)
-#             # self.G.load(hny_config.GRAMMAR_DIR+'/grammar.cfg')
-
-#     # def encode(self, lhs, rhs):
-#     #     return self.G.encode_rule(lhs,rhs)
-
-#     # def decode(self, lhs, pt):
-#     #     return self.G.decode_rule(lhs, pt)
-
-#     def get_freq(self, lhs, rhs):
-#         return self.G.get_freq(lhs, rhs)
-#         try:
-#             s, e = self.G.get_freq_range(lhs, rhs)
-#             return e-s
-#         except ValueError: 
-#             print "ValueError in get_freq -- %s is not in %s:" % \
-#                 (rhs,self.G[lhs][0])
-#             return -1
 
 
 
@@ -254,8 +228,9 @@ def getVal(arr, val):
             found = True
             print(x, t)
     if t > -1:
-        # to deal with floating this is used, basically converted the numebrs in (mod totalC)
-        # ASSUMPTION: max value of sum of frequency is 4,294,967,295, i.e. ~ 4.29 billion!!
+        # to deal with floating this is used, basically converted the numebrs in
+        # (mod totalC) ASSUMPTION: max value of sum of frequency is
+        # 4,294,967,295, i.e. ~ 4.29 billion!!
         return convert2group(t, totalC)
     return t
 
@@ -301,29 +276,24 @@ def Encode_spcl(m, grammar):
         E.append(getVal(grammar[p], w));
     E.append(getVal(grammar['S'], P[-1]))
     E.append(getVal(grammar[P[-1]], W[-1]));
-    if PASSWORD_LENGTH > 0:
-        extra = PASSWORD_LENGTH - len(E);
+    if hny_config.PASSWORD_LENGTH > 0:
+        extra = hny_config.PASSWORD_LENGTH - len(E)
         E.extend([convert2group(0, 1) for x in range(extra)])
-    return E;
+    return E
 
 
 def main():
     dte = DTE()
-    scanner = Scanner()
     print("Resource:", resource.getrusage(resource.RUSAGE_SELF).ru_maxrss);
-    # p='(NH4)2Cr2O7' # sys.stdin.readline().strip()
-    p = 'iloveyou69'
-    c = Encode(p, scanner, dte);
-    # print "Encoding:", c
-    m = Decode(c, dte);
-    # print "After Decoding:", m
-    # return
-    #     if PASSWORD_LENGTH>0:
+    for p in ['(NH4)2Cr2O7', 'iloveyou69']:
+        c = dte.encode_pw(p)
+        m = dte.decode_pw(c)
+        print("After Decoding(encoding of {}): {}".format(p, m))
     for s in range(0000):
         E = []
-        E.extend([convert2group(0, 1) for x in range(PASSWORD_LENGTH)])
+        E.extend([convert2group(0, 1) for x in range(hny_config.PASSWORD_LENGTH)])
         c_struct = struct.pack('%sI' % len(E), *E)
-        m = Decode(c_struct, dte);
+        m = dte.decode_pw(c_struct)
         print(s, ":", m)
 
 

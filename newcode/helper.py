@@ -3,7 +3,7 @@
 import bz2
 import os
 import sys
-from dawg import DAWG
+from dawg import DAWG, IntDAWG
 from os.path import expanduser
 import struct
 # opens file checking whether it is bz2 compressed or not.
@@ -11,7 +11,8 @@ import gzip
 import string
 import random as orig_random
 BASE_DIR = os.getcwd()
-from honeyvault_config import MAX_INT, DEBUG, PRODUCTION
+from honeyvault_config import MAX_INT, DEBUG, PRODUCTION, MEMLIMMIT
+import resource  # For checking memory usage
 
 home = expanduser("~")
 pwd = os.path.dirname(os.path.abspath(__file__))
@@ -85,8 +86,20 @@ def file_type(filename, param='rb'):
     return "no match"
 
 
-def load_dawg(f):
-    T = DAWG()
+def check_resource(n=0):
+    mem_used = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/1024
+    r = MEMLIMMIT * 1024 - mem_used
+    print("Memory Usage: {} MB, Lineno: {}".format(mem_used, n))
+    if r < 0:
+        print("Hitting the memory limit of 1 GB. \nPlease increase the"
+              "limit or use smaller data set.  Lines processed, {0:d}"
+              .format(n))
+        return -1
+    return r
+
+
+def load_dawg(f, t=IntDAWG):
+    T = t()
     T.read(open_(f))
     return T
 
@@ -180,6 +193,14 @@ def convert2group(t, totalC, n=1):
             for c in random.randints(0, (MAX_INT-t) // totalC, n=n)
         ]
 
+
+def isascii(w):
+    """Is all characters in w are ascii characters"""
+    try:
+        w.encode('ascii')
+        return True
+    except UnicodeError:
+        return False
 
 # assumes last element in the array(A) is the sum of all elements
 def getIndex(p, A):

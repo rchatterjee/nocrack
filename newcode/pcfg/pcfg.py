@@ -28,13 +28,11 @@ import honeyvault_config as hny_config
 from collections import OrderedDict
 import sys
 
-GRAMMAR_FILE = hny_config.GRAMMAR_DIR + '/grammar.cfg.bz2'
-
 
 class TrainedGrammar(object):
     l33t_replaces = DAWG.compile_replaces(hny_config.L33T)
 
-    def __init__(self, g_file=GRAMMAR_FILE, cal_cdf=False):
+    def __init__(self, g_file=hny_config.TRAINED_GRAMMAR_FILE, cal_cdf=False):
         self.cal_cdf = cal_cdf
         self.load(g_file)
         self.NonT_set = [x for x in list(self.G.keys()) if x.find('_') < 0]
@@ -237,22 +235,24 @@ class TrainedGrammar(object):
                 c = list(rhs_dict.keys())[i]
                 assert c == r, "The index is wrong"
         except ValueError:
-            print("'{}' not in the rhs_dict (l: '{}', rhs_dict: {})".format(r, l, self.G[l]))
-            raise ValueError
+            raise ValueError("'{}' not in the rhs_dict (l: '{}')"
+                             .format(r, l))
         l_pt = sum(list(rhs_dict.values())[:i])
         r_pt = l_pt + rhs_dict[r] - 1
+        assert l_pt <= r_pt, "Rule with zero freq! rhs_dict[{}] =  {} (l={})\n{}"\
+            .format(r, rhs_dict, l, self.G)
+
         return convert2group(random.randint(l_pt, r_pt),
                              rhs_dict['__total__'])
 
     def encode_pw(self, pw):
         pt = self.l_parse_tree(pw)
-        # print("L_parse_tree", pw, pt)
         try:
             code_g = [self.encode_rule(*p)
                       for p in pt]
         except ValueError as ex:
             print("Error in encoding: {!r}".format(pw))
-            raise ValueError(ex)
+            # raise ValueError(ex)
         extra = hny_config.PASSWORD_LENGTH - len(code_g)
         code_g.extend(convert2group(0, 1, extra))
         return code_g
@@ -347,12 +347,13 @@ class TrainedGrammar(object):
                       " something different, like password12!! (Just kidding.)".format((head, list(rule_dict.keys()))))
                 exit(0)
             assert n == vd.decode_vault_size(head, code_g[-1]), \
-                "Vault size encoding mismatch.\nhead: {!r}, code_g: {}, n: {}, decoded_vault_size: {}"\
+                "Vault size encoding mismatch.\nhead: {!r}, code_g: {}, n: {}, "\
+                "decoded_vault_size: {}"\
                 .format(head, code_g[-1], n, vd.decode_vault_size(head, code_g[-1]))
+
             code_g.extend([self.encode_rule(head, r)
                            for r in rule_dict.keys()
                            if r != '__total__'])
-
             # i = 0
             # for r in rule_dict.keys():
             #     if r == '__total__': continue
@@ -465,7 +466,13 @@ class SubGrammar(TrainedGrammar):
                  for x in v
                  if k.startswith('W')]
         self.Wdawg = IntDAWG(Wlist)
-        for k, v in list(self.G.items()):
+        for k, v in self.G.items():
+            for rhs, f in v.items():
+                if f <= 0:
+                    print("Zero frequency LHS added, setting frequency to 1")
+                    v[rhs] = 1
+                    if '__total__' in v:
+                        v['__total__'] += 1
             if '__total__' not in v:
                 print('__total__ should be there in the keys!!. I am adding one.')
                 v['__total__'] = sum(v.values())
@@ -475,12 +482,14 @@ class SubGrammar(TrainedGrammar):
                                       for x in list(self.G['T'].keys())
                                       if x != '__total__'])
         self.freeze = True
+        self.R.G.default_factory = None
 
     def reset(self):
         for k, v in list(self.G.items()):
             if '__total__' in v:
                 del v['__total__']
         self.freeze = False
+        self.R.G.default_factory = OrderedDict
 
     def add_some_extra_rules(self):
         for k, v in list(self.R.items()):
@@ -517,12 +526,10 @@ class SubGrammar(TrainedGrammar):
 ################################################################################
 
 MAX_ALLOWED = 20  # per rule
-VAULT_DIST_FILE = hny_config.GRAMMAR_DIR + 'vault_dist.cfg'
-
 
 class VaultDistPCFG:
     def __init__(self):
-        self.G = json.load(open_(VAULT_DIST_FILE),
+        self.G = json.load(open_(hny_config.VAULT_DIST_FILE),
                            object_pairs_hook=OrderedDict)
         # Add dummy entries for new non-terminals now
         # TODO: Learn them by vault analysis. 

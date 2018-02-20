@@ -18,11 +18,11 @@ import sys
 BASE_DIR = os.getcwd()
 sys.path.append(BASE_DIR)
 from dawg import IntDAWG, DAWG
-import bz2, re
+import gzip, re
 from .lexer_helper import Date, RuleSet, ParseTree
-from helper import open_
+from helper import open_, load_dawg, check_resource, isascii
 from honeyvault_config import MIN_COUNT, L33T
-from honeyvault_config import MEMLIMMIT, GRAMMAR_DIR
+from honeyvault_config import MEMLIMMIT, TRAINED_GRAMMAR_FILE
 import resource  # For checking memory usage
 
 # Dictionaries:
@@ -139,12 +139,12 @@ class NonT_L(NonT):
 class NonT_W(NonT):
     sym, prod, prob = 'W', '', 0.0
     thisdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    word_dawg = IntDAWG().load('{}/data/English_30000.dawg'.format(thisdir))
-    fname_dawg = IntDAWG().load('{}/data/facebook-firstnames-withcount.dawg'.format(thisdir))
-    lname_dawg = IntDAWG().load('{}/data/facebook-lastnames-withcount.dawg'.format(thisdir))
-    total_f = word_dawg['__total__'] + \
-              fname_dawg['__total__'] + \
-              lname_dawg['__total__']
+    word_dawg = load_dawg('{}/data/English_30000.dawg.gz'.format(thisdir))
+    fname_dawg = load_dawg('{}/data/facebook-firstnames-withcount.dawg.gz'
+                           .format(thisdir))
+    lname_dawg = load_dawg('{}/data/facebook-lastnames-withcount.dawg.gz'
+                           .format(thisdir))
+    total_f = word_dawg['__total__'] + fname_dawg['__total__'] + lname_dawg['__total__']
 
     l33t_replaces = DAWG.compile_replaces(L33T)
 
@@ -265,7 +265,8 @@ class NonT_combined(NonT):
 
 
 def get_all_gen_rules(word):
-    if not word: return None
+    if not word:
+        return None
     NonT_set = [NonT_W, NonT_D,
                 NonT_Y, NonT_R]
     rules = [x for x in [f(word) for f in NonT_set] if x]
@@ -306,27 +307,12 @@ def parse(word):
     return NonT_combined(A[(0, len(word) - 1)])
 
 
-def check_resource(n=0):
-    r = MEMLIMMIT * 1024 - \
-        resource.getrusage(resource.RUSAGE_SELF).ru_maxrss;
-    print("Memory Usage:", (MEMLIMMIT - r / 1024.0), "Lineno:", n)
-    if r < 0:
-        print('''
-Hitting the memory limit of 1GB,
-please increase the limit or use smaller data set.
-Lines processed, {0:d}
-'''.format(n))
-        return 0;
-    return r / 10 + 100;
-
-
-def buildpcfg(passwd_dictionary, start=0, end=-1):
+def buildpcfg(passwd_dictionary, start=0, end=-1, outf=TRAINED_GRAMMAR_FILE):
     # MIN_COUNT=1000
     R = RuleSet()
     # resource track
-    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg.bz2'
     resource_tracker = 5240
-    for n, line in enumerate(open_(passwd_dictionary)):
+    for n, line in enumerate(open_(passwd_dictionary, 'rt')):
         if n < start: continue
         if n > end: break
         if n > resource_tracker:
@@ -342,17 +328,19 @@ def buildpcfg(passwd_dictionary, start=0, end=-1):
         else:
             continue
             w, c = ' '.join(line), 1
-        try:
-            w.decode('ascii')
-        except UnicodeDecodeError:
-            continue  # not ascii hence return
+        # not ascii hence return
+        if not isascii(w):
+            continue
         if c < MIN_COUNT:  # or (len(w) > 2 and not w[:-2].isalnum() and len(re.findall(allowed_sym, w)) == 0):
             print("Word frequency dropped to %d for %s" % (c, w), n)
             break  # Careful!!!
         T = parse(w)
         R.update_set(T.rule_set(), with_freq=True, freq=c)
-    if end > 0: return R
-    R.save(bz2.BZ2File(out_grammar_fl, 'wb'))
+
+    if not outf:
+        return R
+    else:
+        R.save(gzip.open(outf, 'wt'))
 
 
 def wraper_buildpcfg(args):
@@ -364,23 +352,51 @@ def parallel_buildpcfg(password_dictionary):
     p = Pool()
     Complete_grammar = RuleSet()
     load_each = 10000
-    a = [(password_dictionary, c, c + load_each)
+    a = [(password_dictionary, c, c + load_each, None)
          for c in range(0, 10 ** 6, load_each)]
     R = p.map(wraper_buildpcfg, a)
     for r in R:
         Complete_grammar.update_set(r, with_freq=True)
-    out_grammar_fl = GRAMMAR_DIR + '/grammar.cfg.bz2'
-    Complete_grammar.save(bz2.BZ2File(out_grammar_fl, 'wb'))
+    Complete_grammar.save(gzip.open(TRAINED_GRAMMAR_FILE, 'wt'))
 
+
+
+import argparse
+def parse_args():
+    parser = argparse.ArgumentParser(description='PCFG lexer module')
+    parser.add_argument('--buildG', metavar="fname", action='store',
+                        help="Build a PCFG from the given file")
+    parser.add_argument('--parallel', action='store_true',
+                        help="buildG parallely utilizing"
+                        "all cores available in the machine")
+    parser.add_argument('--parse', metavar="word", nargs='+',
+                        help="Parse the given password")
+
+    parser.add_argument('--parsef', metavar="word", nargs='+',
+                        help="Parse all the passwords in the file")
+    args = parser.parse_args()
+    return args
 
 if __name__ == "__main__":
-    if sys.argv[1] == '-buildG':
-        print(buildpcfg(sys.argv[2], 0, 100))
-    elif sys.argv[1] == '-buildparallelG':
-        parallel_buildpcfg(sys.argv[2])
-    elif sys.argv[1] == '-file':
+    args = parse_args()
+    print(args)
+    if args.buildG:
+        fname = args.buildG
+        if args.parallel:
+            parallel_buildpcfg(fname)
+        else:
+            buildpcfg(fname, 0, 100000)
+    elif args.parse:
+        for w in args.parse:
+            T = parse(w)
+            print("Parsing: {}\nParse-tree: {},\nSmallGrammar: {}".format(
+                w, T.parse_tree(), T.rule_set()
+            ))
+
+    elif args.parsef:
+        fname = args.parsef
         R = RuleSet()
-        with open_(sys.argv[2]) as f:
+        with open_(fname) as f:
             for i, line in enumerate(f):
                 if i < 5000: continue
                 l = line.strip().split()
@@ -396,8 +412,3 @@ if __name__ == "__main__":
                 if i % 100 == 0: print(i)
                 if i > 5200: break
         print(R)
-    elif sys.argv[1] == '-parse':
-        print(parse(sys.argv[2]).parse_tree())
-    elif sys.argv[1] == '-ruleset':
-        T = parse(sys.argv[2])
-        print(T.rule_set())

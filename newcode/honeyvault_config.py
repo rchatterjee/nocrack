@@ -12,21 +12,22 @@ import os
 import random
 
 BASE_DIR = os.getcwd()
-DICTIONARY_SOURCE_FILE = "../PasswordDictionary/passwords/combined-withcout.txt.bz2"
-PASSWORD_LEAK = "../PasswordDictionary/passwords/rockyou-withcount.txt.bz2"
 thisdir = os.path.dirname(os.path.abspath(__file__))
 
 # DIC_TRIE_FILE = 'data/english.tri'
-DICTIONARY_DAWG = '{}/Dictionary_Store/dictionary1.1.dawg.gz'.format(thisdir)
-STANDARD_DIC_FILE = "{}/Dictionary_Store/standard_english.tri.gz".format(thisdir)
+# DICTIONARY_DAWG = '{}/Dictionary_Store/dictionary1.1.dawg.gz'.format(thisdir)
+# STANDARD_DIC_FILE = "{}/Dictionary_Store/standard_english.tri.gz".format(thisdir)
 
-GRAMMAR_OUTPUT_FILE = "{}/data/combined.gmr.bz2".format(thisdir)
-GRAMMAR_INPUT_FILE = "{}/data/combined.tri.bz2".format(thisdir)
-HANDGRAMMAR_FILE = "{}/data/grammar.txt".format(thisdir)
+# GRAMMAR_OUTPUT_FILE = "{}/data/combined.gmr.bz2".format(thisdir)
+# GRAMMAR_INPUT_FILE = "{}/data/combined.tri.bz2".format(thisdir)
+# HANDGRAMMAR_FILE = "{}/data/grammar.txt".format(thisdir)
 
-GRAMMAR_DIR = '{}/Grammar/'.format(thisdir)
+STATIC_DIR = os.path.join(thisdir, 'static')
+TRAINED_GRAMMAR_FILE = os.path.join(STATIC_DIR, 'grammar.cfg.gzip')
+VAULT_DIST_FILE = os.path.join(STATIC_DIR, 'vault_dist.cfg')
 
-# Dont change 
+
+# Don't change
 EPSILON = '|_|'
 GRAMMAR_R = 0
 MEMLIMMIT = 1024  # 1024 MB, 1GB
@@ -39,26 +40,31 @@ PRODUCTION = 1
 NONTERMINAL = 1
 TERMINAL = 1 - NONTERMINAL
 
-REPR_SIZE = 4  # number of bytes to represent an integer. normally 4byte.
-# but we might go for higher values for better security.
+REPR_SIZE = 4  # number of bytes to represent an integer. normally 4 bytes. But
+               # we might go for higher values for better security.
 
 MAX_INT = 256 ** REPR_SIZE  # value of maximum integer in this representation.
 
 PASSWORD_LENGTH = 100  # length of the password encoding
 HONEY_VAULT_GRAMMAR_SIZE = 500  # 400 bytes, 50 integers/rules
-HONEY_VAULT_S1 = 1000  # This controls the size of your password vault. If you want to increase the size
-HONEY_VAULT_S2 = 1000  # feel free to change these. Remember to delete static/vault.db after this.
-# Need less to say, you will lose all your passwords. Export/import operation is
-# not yet supported.
+
+# This controls the size of the NoCrack vault. Refer to the Oakland 15 paper
+# (NoCrack) for more details.  If you change this remember to delete
+# static/vault.db to see the effect.  Need less to say, you will lose all your
+# passwords. Export/import operation are on its way. (TODO: Import-Export
+# functions)
+HONEY_VAULT_S1 = 1000
+HONEY_VAULT_S2 = 1000
 
 HONEY_VAULT_STORAGE_SIZE = HONEY_VAULT_S1 + HONEY_VAULT_S2
-# TODO: for each password there is 1 byte saying the size of the password 
-# currently '1' or '0' for m/c or human generated pw
-HONEY_VAULT_MACHINE_PASS_SET_SIZE = int(math.ceil(HONEY_VAULT_STORAGE_SIZE / 8.0))
+# For each password there is 1 byte saying whether the password is m/c or human
+# generated.  '1' --> m/c or '0' --> human generated pw.
+# TODO: move it to more succinct repr, Google's protobuf!
+HONEY_VAULT_MACHINE_PASS_SET_SIZE = int(math.ceil(HONEY_VAULT_STORAGE_SIZE / 8))
 HONEY_VAULT_ENCODING_SIZE = HONEY_VAULT_GRAMMAR_SIZE + \
                             HONEY_VAULT_STORAGE_SIZE * PASSWORD_LENGTH
 HONEY_VAULT_TOTAL_CIPHER_SIZE = HONEY_VAULT_ENCODING_SIZE + \
-                                int(math.ceil(HONEY_VAULT_MACHINE_PASS_SET_SIZE / 4.0)) + \
+                                int(math.ceil(HONEY_VAULT_MACHINE_PASS_SET_SIZE / 4)) + \
                                 8  # PBKDF1 salt size
 
 SECURITY_PARAM = 16
