@@ -5,8 +5,7 @@
 Coming soon.
 
 ## Dependencies  
-    Upgraded the project to Python 3.4.x. You can install it using
-    [`pyenv`](https://github.com/pyenv/pyenv).
+Upgraded the project to Python 3.4.x. You can install it using [`pyenv`](https://github.com/pyenv/pyenv).
 <!-- Tips: for using `json` in python 2.6, try installing 'simplejson'. (I.e., `$ pip install simplejson`) -->
   - python-dev (e.g., `$ sudo apt-get install python-dev` in Debian machine)
   - Others are given in the `requirement.txt`.
@@ -57,14 +56,12 @@ See `python buildPCFG.py --help` for more info. It will replace the grammar file
 
 ## How to run?
 
-**Dont forget to activate your virtualvenv and be in the `nocrac/newcode/` directory.** 
+**Dont forget to activate your virtualvenv and navigate to `nocrack/newcode/` directory.** 
 All code is to be run from that directory.
 ```bash
 $ source venv/bin/activate
 (venv) $
-```
-
-**(I am doing a bulk restructuring of the code. So some part of the usage might be inconcistent!)** 
+``` 
 
 The main command interface for nocrack is the `hone_client.py` file. 
 It takes several options, explained one by one below.
