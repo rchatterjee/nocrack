@@ -105,7 +105,7 @@ class TrainedGrammar(object):
     def get_T_rule(self, word):
         T = self.date.IsDate(word)
         if T:
-            p = 10 ** (len(word) - 8)
+            p = 10 ** (len(word))
             for r in T.tree:
                 p *= self.get_prob(*r)
             p *= self.get_prob(*(T.get_rule()))
@@ -114,6 +114,8 @@ class TrainedGrammar(object):
     def get_all_matches(self, word):
         rules = []
         for nt in self.NonT_set:
+            if nt.startswith('G'):  # 'G' should not be considered here
+                continue
             if nt.startswith('W'):
                 l = self.get_W_rule(word)
                 if l: rules.append(l)
@@ -129,8 +131,9 @@ class TrainedGrammar(object):
             return max(rules, key=lambda x: x[-1])
 
     def join(self, r, s):
-        not_startswith_L_T = lambda x: x and \
-                                       not (x[0].startswith('L_') or x[0].startswith('T_'))
+        def not_startswith_L_T(x):
+            return (x and
+                    not (x[0].startswith('L_') or x[0].startswith('T_')))
         if not_startswith_L_T(s) and not_startswith_L_T(r):
             k = ','.join([r[0], s[0]])
             p = r[-1] * s[-1]
@@ -147,7 +150,8 @@ class TrainedGrammar(object):
         if try_num < 0:
             print("I am very sorry. I could not parse this :(!!")
             return None
-            # NO IDEA HOW TO randomly pick a parse tree!! @@TODO
+        # NO IDEA HOW TO randomly pick a parse tree!! @@TODO
+        raise ValueError("Not implemented")
 
     def parse(self, word):
         A = {}
@@ -193,6 +197,7 @@ class TrainedGrammar(object):
     def l_parse_tree(self, word):  # leftmost parse-tree
         pt = ParseTree()
         p = self.parse(word)
+        print(p)
         if not p:
             print("Failing at {!r}".format(word))
             return pt
