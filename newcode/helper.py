@@ -121,6 +121,13 @@ def open_(filename, mode='r'):
         f = open(filename, mode);
     return f
 
+def chunks(l, n):
+    """Break the array l in n chunks, the size of each chunk is determined as
+    len(l)/n. The last chunk might be of smaller length
+    """
+    t = len(l)//n
+    return (l[i:i+t] for i in range(0, len(l), t))
+
 
 def print_err(*args):
     if DEBUG:

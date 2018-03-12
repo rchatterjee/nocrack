@@ -22,12 +22,13 @@ from .lexer_helper import Date, RuleSet, ParseTree
 from .lexer import NonT_L, get_nont_class
 from helper import (
     open_, getIndex, convert2group, print_err,
-    bin_search, print_once, random, whatchar, DEBUG
+    bin_search, print_once, random, whatchar, DEBUG,
+    chunks
 )
 import honeyvault_config as hny_config
 from collections import OrderedDict
 import sys
-
+import struct
 
 class TrainedGrammar(object):
     l33t_replaces = DAWG.compile_replaces(hny_config.L33T)
@@ -306,7 +307,7 @@ class TrainedGrammar(object):
         while stack:
             lhs = stack.pop()
             rhs = self.decode_rule(lhs, next(iterp))
-            if lhs in ['G', 'T', 'W', 'R', 'Y', 'D']:
+            if lhs in ['G', 'T', 'W', 'Y', 'D']:
                 arr = rhs.split(',') if lhs != 'T' \
                     else ['T_%s' % c for c in rhs.split(',')]
                 arr.reverse()
@@ -581,7 +582,7 @@ USAGE = """What do you want to do?
 -vault <pw1> <pw2>... to encode a set of passwords as a vault.
 -parse <pw> parase a password. (not vey useful)
 -ptree <pw> Give the parse tree of a password. (Break a password into chunks.)
-
+-generate <n>  Gnereates n random decoded passwords
 
 $ python -ptree Password12
 Parse Tree for Password12
@@ -622,6 +623,14 @@ if __name__ == '__main__':
         pt = tg.l_parse_tree(pw)
         print('Parse Tree for {}\n{}\nSize: {}'.format(pw, pt, len(pt)))
         # print('Get_all_matches: ', tg.get_all_matches(pw))
+    elif sys.argv[1] == '-generate':
+        n = max(int(sys.argv[2]), 1)
+        fmt = "<{}L".format(hny_config.PASSWORD_LENGTH)
+        rnd = os.urandom(n * struct.calcsize(fmt))
+        for i, x in enumerate(chunks(rnd, n)):
+            # print(len(x), n, len(rnd), fmt)
+            code = struct.unpack(fmt, x)
+            print("{:-5d}: {:20s}".format(i, tg.decode_pw(code)))
     else:
         print("No matches found in your action: {!r}".format(sys.argv[1]))
         print(USAGE)

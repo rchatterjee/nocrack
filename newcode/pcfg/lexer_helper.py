@@ -413,7 +413,7 @@ $""".format(**{'mm': mm, 'yy': yy, 'yyyy': yyyy,
 
     def rule_set(self):
         r = RuleSet()
-        comb = ''.join([x[0][-1] for x in self.date])
+        comb = ','.join([x[0][-1] for x in self.date])
         r.add_rule('T', comb)
         for l in self.date:
             r.add_rule(*l)
