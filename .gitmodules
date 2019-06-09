@@ -1,0 +1,3 @@
+[submodule "writeup"]
+	path = writeup
+	url = git@bitbucket.org:rchatterjee/hvault.git
