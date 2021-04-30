@@ -10,4 +10,4 @@ pyasn1
 pycrypto
 pyparsing
 python-dateutil
-rsa==4.1
+rsa==4.7
